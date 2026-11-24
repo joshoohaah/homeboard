@@ -31,3 +31,6 @@ target/
 
 # Real calendars, tokens and photos
 data/
+client_secret*.json
+google-client.json
+google-tokens.json

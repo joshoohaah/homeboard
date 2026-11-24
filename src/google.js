@@ -14,14 +14,16 @@ const EVENT_COLORS = {
   7: '#039be5', 8: '#616161', 9: '#3f51b5', 10: '#0b8043', 11: '#d50000',
 };
 
-export function normalizeGoogle(item) {
+export function normalizeGoogle(item, labels = new Map()) {
   if (item.status === 'cancelled' || item.eventType === 'workingLocation' || !item.start) return null;
   if (item.attendees?.some((a) => a.self && a.responseStatus === 'declined')) return null;
+  // Labels carry the color Google's own apps show; colorId is the older field.
+  const color = labels.get(item.eventLabelId) ?? EVENT_COLORS[item.colorId];
   return {
     title: item.summary || 'Busy', allDay: Boolean(item.start.date),
     start: item.start.date ?? new Date(item.start.dateTime).toISOString(),
     end: item.end.date ?? new Date(item.end.dateTime).toISOString(),
-    ...(EVENT_COLORS[item.colorId] && { color: EVENT_COLORS[item.colorId] }),
+    ...(color && { color }),
   };
 }
 
@@ -99,6 +101,19 @@ export class GoogleClient {
 
   calendars(account) { return this.#list(account, '/users/me/calendarList', { maxResults: 250, showHidden: true }); }
 
+  async #labels(account, id) {
+    try {
+      const headers = { authorization: `Bearer ${await this.accessToken(account)}` };
+      const cal = await fetchJson(`${API}/calendars/${encodeURIComponent(id)}`, { headers });
+      return new Map((cal.labelProperties?.eventLabels ?? [])
+        .filter((l) => /^#[0-9a-f]{6}$/i.test(l.backgroundColor ?? ''))
+        .map((l) => [l.id, l.backgroundColor]));
+    } catch (err) {
+      console.warn(`event label colors unavailable: ${err.message}`); // events still show, in the calendar color
+      return new Map();
+    }
+  }
+
   /** `wanted` may be a calendar ID or the name shown in Google Calendar. */
   async events(account, wanted, range) {
     const list = await this.calendars(account);
@@ -109,6 +124,7 @@ export class GoogleClient {
       singleEvents: true, orderBy: 'startTime', maxResults: 2500,
       timeMin: range.start.toISOString(), timeMax: range.end.toISOString(),
     });
-    return items.map(normalizeGoogle).filter(Boolean);
+    const labels = items.some((i) => i.eventLabelId) ? await this.#labels(account, cal.id) : new Map();
+    return items.map((item) => normalizeGoogle(item, labels)).filter(Boolean);
   }
 }

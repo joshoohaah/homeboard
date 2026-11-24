@@ -10,6 +10,9 @@ TrueNAS runs the server, the Pi shows it in a browser, DAKboard stays as it is u
 3. **Clients > Create client > Web application**, redirect URI:
    `https://board.YOURDOMAIN/admin/oauth/callback` (must match `PUBLIC_URL` exactly).
 
+4. Download the client's JSON and save it as `google-client.json` in the data folder (or set `GOOGLE_CLIENT_ID`
+   and `GOOGLE_CLIENT_SECRET`). Git and the Docker build ignore it.
+
 Access is read-only. Tokens are stored in the `data` dataset in `google-tokens.json`, so keep it private.
 
 ## 2. TrueNAS
@@ -24,8 +27,8 @@ Access is read-only. Tokens are stored in the `data` dataset in `google-tokens.j
    The board shows your family's schedule: prefer LAN/VPN-only, and do not expose it without `DISPLAY_KEY`.
 6. Open `https://board.YOURDOMAIN/admin` (any user name, `ADMIN_PASSWORD`) and press **Connect** for
    each account. Each owner signs in to their own account, on any computer.
-7. The same page lists every calendar each account can see, and any source that fails. If a name does not
-   match, copy its name or ID into `config.json` and restart the app.
+7. The same page adds calendars from a connected account or an iCal link, changes names, colors, icons and order,
+   and shows any source that fails. Changes apply at once. Edits made directly in `config.json` need a restart.
 8. Photos: on the same page press **Connect Google Photos**, then **Add photos**. Pick in Google Photos while signed
    in to that same account, press Done, and the board copies them to `data/imported-photos` (up to 2000 per pick).
    Google no longer lets apps follow an album, so pick again to add newer photos. The `/photos` folder is optional.
@@ -50,9 +53,10 @@ Use a **second SD card** so the DAKboard card is an instant way back.
 | Field | Meaning |
 |---|---|
 | `calendars[].type` | `google` (`account`, `calendar` name or ID) or `ics` (`url`) |
-| `calendars[].icon` | any name from <https://pictogrammers.com/library/mdi/>; leave out for a dot |
+| `calendars[].icon` | pick it on the admin page (Material Design Icons); leave out for a dot |
 | `colorRules` | e.g. `{ "match": "soccer", "color": "#f6bf26", "calendar": "Parent" }`; wins over Google's color |
 | `weeks`, `refreshMinutes`, `photoSeconds` | 6, 5, 30 by default |
 
-Colors you set on individual events in Google Calendar are used automatically. ICS feeds do not carry them.
+Colors set on individual events are used when the board reads the calendar through its owner's account. Google hides
+them from people the calendar is shared with, and ICS feeds do not carry them: use `colorRules` there.
 Photos: JPG, PNG, WebP, AVIF or GIF, in any subfolder. HEIC files in the folder are skipped; photos picked from Google Photos arrive as JPEG.

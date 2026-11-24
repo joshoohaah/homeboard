@@ -8,10 +8,10 @@ function fail(message) { throw new Error(`config.json: ${message}`); }
 
 function checkCalendar(cal, i) {
   const where = `calendars[${i}]`;
-  if (!cal.name) fail(`${where} needs a name`);
+  if (typeof cal.name !== 'string' || !cal.name.trim()) fail(`${where} needs a name`);
   if (!SOURCE_TYPES.has(cal.type)) fail(`${where} type must be google, ics or static`);
   if (cal.type === 'google' && (!/^[\w-]+$/.test(cal.account ?? '') || !cal.calendar)) fail(`${where} needs account and calendar`);
-  if (cal.type === 'ics' && !/^(https?|webcal):\/\//.test(cal.url ?? '')) fail(`${where} needs an http(s) or webcal url`);
+  if (cal.type === 'ics' && (!/^(https?|webcal):\/\//.test(cal.url ?? '') || !URL.canParse(cal.url))) fail(`${where} needs an http(s) or webcal url`);
   if (!HEX.test(cal.color ?? '')) fail(`${where} color must look like #aabbcc`);
   if (cal.icon && !/^[a-z0-9-]+$/.test(cal.icon)) fail(`${where} icon must be an MDI icon name`);
 }
