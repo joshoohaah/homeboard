@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { access, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { isDisplay, displayCookie, same } from './auth.js';
+import { isDisplay, isHttps, displayCookie, same } from './auth.js';
 import { createAdmin } from './admin-routes.js';
 
 const root = (p) => fileURLToPath(new URL(`../${p}`, import.meta.url));
@@ -62,7 +62,7 @@ export function createApp({ board, photos, google, photoImport, store, env, log 
         await sleep(FAILED_LOGIN_DELAY_MS);
         return send(res, 403, 'Wrong key');
       }
-      return redirect(res, '/', { 'set-cookie': displayCookie(key, (env.PUBLIC_URL ?? '').startsWith('https:')) });
+      return redirect(res, '/', { 'set-cookie': displayCookie(key, isHttps(req)) });
     }
     if (!isDisplay(req, key)) return send(res, 403, 'Open this board with its ?key= link first.');
     return display(res, pathname);

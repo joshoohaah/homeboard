@@ -10,6 +10,15 @@ export function isAdmin(req, password) {
   return same(decoded.slice(decoded.indexOf(':') + 1), password);
 }
 
+/**
+ * Whether the visitor's own connection was HTTPS, as reported by the reverse proxy.
+ * Only used for the visitor's own cookie, so a forged header affects nobody else.
+ */
+export function isHttps(req) {
+  const [proto] = String(req.headers['x-forwarded-proto'] ?? '').split(',');
+  return proto.trim().toLowerCase() === 'https';
+}
+
 const COOKIE = 'homeboard';
 // The cookie holds a hash so the key itself is not left on the screen's disk.
 const cookieValue = (key) => digest(`display:${key}`).toString('hex');

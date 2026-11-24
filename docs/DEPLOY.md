@@ -22,8 +22,8 @@ Access is read-only. Tokens are stored in the `data` dataset in `google-tokens.j
 3. Copy this folder (without `node_modules`) to the NAS and build in its shell:
    `sudo docker build -t homeboard:latest /mnt/POOL/apps/homeboard/src`
 4. **Apps > Custom App > Install via YAML**: paste `compose.yaml` with your pool, domain and secrets.
-5. Point your reverse proxy at port 8480. Plain HTTP is enough for the Pi on the LAN only if you leave
-   `PUBLIC_URL` as http; with an https `PUBLIC_URL` the display cookie needs https.
+5. Point your reverse proxy at port 8480. The proxy must send `X-Forwarded-Proto` (Traefik, Caddy and
+   Nginx Proxy Manager do). The local address `http://NAS:8480/?key=...` works too; the key then crosses your LAN unencrypted.
    The board shows your family's schedule: prefer LAN/VPN-only, and do not expose it without `DISPLAY_KEY`.
 6. Open `https://board.YOURDOMAIN/admin` (any user name, `ADMIN_PASSWORD`) and press **Connect** for
    each account. Each owner signs in to their own account, on any computer.

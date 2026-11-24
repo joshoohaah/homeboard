@@ -77,9 +77,18 @@ test('calendars are edited only with the password and the form token', async () 
 test('board is private without the key', async () => {
   for (const p of ['/', '/api/board', '/photos/0123456789abcdef']) assert.equal((await get(p)).status, 403);
   assert.equal((await get('/?key=bad')).status, 403);
-  assert.match((await get('/?key=k')).headers.get('set-cookie'), /HttpOnly.*Secure/);
   assert.equal((await get('/', { cookie: await login() })).status, 200);
   assert.equal((await get('/healthz')).status, 200);
+});
+test('the cookie is HTTPS-only exactly when the visitor came in over HTTPS', async () => {
+  const cookie = async (headers) => (await get('/?key=k', headers)).headers.get('set-cookie');
+  // PUBLIC_URL is https here: a browser on the plain local address must still keep its cookie.
+  assert.doesNotMatch(await cookie({}), /Secure/);
+  assert.doesNotMatch(await cookie({ 'x-forwarded-proto': 'http' }), /Secure/);
+  for (const proto of ['https', 'HTTPS', 'https, http']) {
+    assert.match(await cookie({ 'x-forwarded-proto': proto }), /HttpOnly.*Secure/, proto);
+  }
+  assert.match(await cookie({}), /HttpOnly; SameSite=Lax/);
 });
 test('admin needs the password and rejects unknown accounts and forged state', async () => {
   assert.equal((await get('/admin')).status, 401);
