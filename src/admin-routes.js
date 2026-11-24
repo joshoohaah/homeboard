@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { isAdmin, same } from './auth.js';
 import { adminHtml, errorHtml } from './admin.js';
+import { iconIndex } from './icons.js';
 import { PHOTOS_ACCOUNT } from './google.js';
 
 const FAILED_LOGIN_DELAY_MS = 1000;
@@ -17,7 +18,7 @@ async function readForm(req) {
   return Object.fromEntries(new URLSearchParams(body));
 }
 
-export function createAdmin({ board, google, photoImport, store, env, log, send, redirect }) {
+export function createAdmin({ board, google, photoImport, store, env, log, send, sendFile, redirect }) {
   // Browsers resend Basic credentials on their own, so a form must also carry this.
   const token = randomBytes(24).toString('base64url');
 
@@ -68,6 +69,8 @@ export function createAdmin({ board, google, photoImport, store, env, log, send,
     }
     if (req.method === 'POST') return url.pathname === '/admin/calendars' ? edit(req, res) : send(res, 405, 'Method not allowed');
     if (url.pathname === '/admin') return send(res, 200, await adminHtml({ board, google, photoImport, token }), HTML);
+    if (url.pathname === '/admin/icon-picker.js') return sendFile(res, ['public/icon-picker.js', 'text/javascript']);
+    if (url.pathname === '/admin/icons.json') return send(res, 200, JSON.stringify(await iconIndex()), 'application/json', { 'cache-control': 'private, max-age=86400' });
     if (url.pathname === '/admin/oauth/callback') return callback(res, url);
     if (url.pathname === '/admin/photos') return pickPhotos(res, url);
     if (url.pathname === '/admin/connect') return connect(res, url);

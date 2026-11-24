@@ -136,6 +136,9 @@ test('photos are resized; paths and other files are unreachable', async () => {
   }
   await rm(join(dir, 'a.jpg'));
   assert.equal((await get(`/photos/${photos.ids()[0]}`, { cookie })).status, 404);
-  assert.equal((await get('/icons/penguin.svg', { cookie })).status, 200);
+  assert.equal((await get('/icons/penguin.svg')).status, 200, 'the admin page has no display cookie');
+  assert.equal((await get('/admin/icons.json')).status, 401);
+  assert.ok((await (await get('/admin/icons.json', basic)).json()).groups.Sports.includes('soccer'));
+  assert.equal((await get('/admin/icon-picker.js', basic)).status, 200);
   assert.equal((await realFetch(`${base}/api/board`, { method: 'POST' })).status, 405);
 });

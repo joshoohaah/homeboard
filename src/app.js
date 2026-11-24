@@ -34,13 +34,11 @@ const sendFile = async (res, [path, type], cache = 'no-cache') =>
 const sendAdmin = (res, code, body, type, extra = {}) => send(res, code, body, type, { ...ADMIN_HEADERS, ...extra });
 
 export function createApp({ board, photos, google, photoImport, store, env, log = console.error }) {
-  const admin = createAdmin({ board, google, photoImport, store, env, log, send: sendAdmin, redirect });
+  const admin = createAdmin({ board, google, photoImport, store, env, log, send: sendAdmin, sendFile, redirect });
 
   async function display(res, pathname) {
     if (STATIC[pathname]) return sendFile(res, STATIC[pathname]);
     if (pathname === '/api/board') return send(res, 200, JSON.stringify(board.snapshot()), 'application/json');
-    const icon = pathname.match(/^\/icons\/([a-z0-9-]+)\.svg$/)?.[1];
-    if (icon) return sendFile(res, [iconPath(icon), 'image/svg+xml'], 'max-age=86400');
     const photo = pathname.match(/^\/photos\/([0-9a-f]{16})$/)?.[1];
     const image = photo && await photos.render(photo);
     if (image) return send(res, 200, image, 'image/jpeg', { 'cache-control': 'private, max-age=3600' });
@@ -54,6 +52,9 @@ export function createApp({ board, photos, google, photoImport, store, env, log 
     if (!['GET', 'HEAD'].includes(req.method) && !(isAdminPath && req.method === 'POST')) return send(res, 405, 'Method not allowed');
     if (pathname === '/healthz') return send(res, 200, 'ok');
     if (isAdminPath) return admin(req, res, url);
+    // A public icon pack: the admin page needs it without the display cookie.
+    const icon = pathname.match(/^\/icons\/([a-z0-9-]+)\.svg$/)?.[1];
+    if (icon) return sendFile(res, [iconPath(icon), 'image/svg+xml'], 'max-age=86400');
 
     const key = env.DISPLAY_KEY;
     if (key && pathname === '/' && url.searchParams.has('key')) {

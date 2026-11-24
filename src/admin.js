@@ -5,8 +5,13 @@ const STYLE = `:root{color-scheme:light}body{background:#fff;color:#111;font:16p
 form{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;padding:.35rem 0;border-top:1px solid #ddd}
 input,button{font:inherit;padding:.25rem .4rem}input[type=color]{width:3rem;height:2.2rem;padding:.1rem}
 input[name=name]{width:13rem}input[name=icon]{width:10rem}input[name=url]{width:20rem}
-small{color:#555;flex:1 1 8rem;overflow-wrap:anywhere}td,th{text-align:left;padding:.3rem 1rem .3rem 0}`;
-const page = (body) => `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Homeboard admin</title><style>${STYLE}</style>${body}</html>`;
+small{color:#555;flex:1 1 8rem;overflow-wrap:anywhere}td,th{text-align:left;padding:.3rem 1rem .3rem 0}
+.pick{min-width:3rem;height:2.2rem;display:grid;place-items:center}.bar{display:flex;gap:.5rem}.bar input{flex:1;min-width:0}
+dialog{width:min(44rem,calc(100vw - 2rem));height:min(40rem,calc(100vh - 2rem));border:1px solid #888;border-radius:.5rem}
+dialog[open]{display:flex;flex-direction:column;gap:.5rem}.icons{overflow:auto;flex:1}.icons h3{margin:.8rem 0 .3rem;font-size:1rem}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(3rem,1fr));gap:.3rem}.tile{height:3rem;display:grid;place-items:center;cursor:pointer}
+.tile.chosen{outline:3px solid #1a5fd0}`;
+const page = (body) => `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Homeboard admin</title><style>${STYLE}</style>${body}<script type="module" src="/admin/icon-picker.js"></script></html>`;
 
 export const errorHtml = (message) => page(`<h1>Not saved</h1><p>${esc(message)}</p><p><a href="/admin">Back</a></p>`);
 
@@ -79,7 +84,6 @@ export async function adminHtml({ board, google, photoImport, token }) {
   const accounts = google.configured ? await accountLists(board, google, tokens) : [];
   return page(`<h1>Homeboard</h1><p><a href="/">Open the board</a></p>
 <h2>Calendars on the board</h2>${config.calendars.map(currentForm(token)).join('') || '<p>None yet.</p>'}
-<p><small>Icons: any name from <a href="https://pictogrammers.com/library/mdi/" target="_blank" rel="noreferrer">this list</a>, or empty for a dot.</small></p>
 <h2>Add an iCal link</h2><form method="post" action="/admin/calendars">${hidden({ token })}${lookInputs({})}<input type="url" name="url" placeholder="https:// or webcal:// link" aria-label="iCal link" required>${button('add-ics', 'Add')}</form>
 <h2>Google accounts</h2>${google.configured ? googleHtml(accounts, config, token) : '<p>Add google-client.json to the data folder first.</p>'}
 <h2>Google Photos</h2>${photosHtml(Boolean(tokens[PHOTOS_ACCOUNT]), google, photoImport)}

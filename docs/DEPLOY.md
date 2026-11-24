@@ -53,7 +53,7 @@ Use a **second SD card** so the DAKboard card is an instant way back.
 | Field | Meaning |
 |---|---|
 | `calendars[].type` | `google` (`account`, `calendar` name or ID) or `ics` (`url`) |
-| `calendars[].icon` | any name from <https://pictogrammers.com/library/mdi/>; leave out for a dot |
+| `calendars[].icon` | pick it on the admin page (Material Design Icons); leave out for a dot |
 | `colorRules` | e.g. `{ "match": "soccer", "color": "#f6bf26", "calendar": "Parent" }`; wins over Google's color |
 | `weeks`, `refreshMinutes`, `photoSeconds` | 6, 5, 30 by default |
 
