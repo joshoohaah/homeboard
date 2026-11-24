@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "homeboard-demo", "runtimeExecutable": "npm", "runtimeArgs": ["run", "demo"], "port": 8080 }
+    { "name": "homeboard-demo", "runtimeExecutable": "npm", "runtimeArgs": ["run", "demo"], "port": 8080 },
+    { "name": "homeboard", "runtimeExecutable": "npm", "runtimeArgs": ["start"], "port": 8080 }
   ]
 }

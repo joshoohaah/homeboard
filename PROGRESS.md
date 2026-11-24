@@ -14,6 +14,13 @@ Template for each entry:
 - **Traps:** anything surprising that cost time (also add to CLAUDE.md › Gotchas if durable)
 -->
 
+## 2026-11-24 — Calendar management
+- **Goal:** manage calendars without editing config.json; load Google's key file.
+- **Done:** admin forms (`src/admin*.js`, `src/config-edit.js`), `data/google-client.json`, Google event labels.
+- **Verified:** `bash scripts/verify.sh`; add, rename, reorder and remove against a live server and Google account.
+- **Next:** deploy with docs/DEPLOY.md; connect a second Google account.
+- **Traps:** Google hides event colors from people a calendar is shared with.
+
 ## 2026-11-24 — First version
 - **Goal:** replace a hosted DAKboard screen.
 - **Done:** board, Google and iCal calendars, weather, AQI, word of the day, Google Photos import, container.

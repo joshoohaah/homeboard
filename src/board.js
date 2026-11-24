@@ -42,16 +42,35 @@ export class Board {
     ];
   }
 
+  /** Swaps the config and forgets cached events whose source changed. */
+  setConfig(config) {
+    const source = (c) => JSON.stringify([c.type, c.account, c.calendar, c.url]);
+    const before = new Map(this.config.calendars.map((c) => [c.name, source(c)]));
+    const kept = new Set(config.calendars.filter((c) => before.get(c.name) === source(c)).map((c) => `cal:${c.name}`));
+    const keep = (all) => Object.fromEntries(Object.entries(all).filter(([k]) => !k.startsWith('cal:') || kept.has(k)));
+    this.#cache = keep(this.#cache);
+    this.#errors = keep(this.#errors);
+    this.config = config;
+  }
+
+  /** Refreshes after any refresh that is already running, so new settings are picked up. */
+  refreshSoon() {
+    const running = this.#running ?? Promise.resolve();
+    running.catch(() => {}).then(() => this.refresh()).catch((err) => this.log('refresh:', err.message));
+  }
+
   refresh() {
     this.#running ??= this.#refresh().finally(() => { this.#running = null; });
     return this.#running;
   }
 
   async #refresh() {
+    const { config } = this;
     const jobs = this.#jobs();
     const results = await Promise.allSettled(jobs.map(([, run]) => run()));
     results.forEach((r, i) => {
       const [key] = jobs[i];
+      if (key.startsWith('cal:') && config !== this.config) return; // calendars changed meanwhile
       if (r.status === 'fulfilled') {
         this.#cache = { ...this.#cache, [key]: { at: Date.now(), data: r.value } };
         this.#errors = { ...this.#errors, [key]: null };

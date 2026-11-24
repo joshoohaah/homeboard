@@ -5,7 +5,8 @@ import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { createApp } from '../src/app.js';
+import { ConfigStore } from '../src/config-edit.js';
+import { createApp, iconExists } from '../src/app.js';
 import { Board } from '../src/board.js';
 import { Photos } from '../src/photos.js';
 import { GoogleClient } from '../src/google.js';
@@ -18,10 +19,11 @@ const ROUTES = {
   'feeds.test': () => (icsUp ? new Response('BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:1\r\nSUMMARY:Game\r\nDTSTART;VALUE=DATE:20261126\r\nEND:VEVENT\r\nEND:VCALENDAR') : new Response('', { status: 500 })),
   'oauth2.googleapis.com': () => Response.json({ access_token: 'at', refresh_token: 'refresh-secret', expires_in: 3600 }),
   'www.googleapis.com': (u) => {
-    if (u.pathname.endsWith('/calendarList')) return Response.json({ items: [{ id: 'abc@group', summary: 'Band' }] });
+    if (u.pathname.endsWith('/calendarList')) return Response.json({ items: [{ id: 'abc@group', summary: 'Band' }, { id: 'free@group', summary: '<i>Free', backgroundColor: 'bad"' }] });
+    if (u.pathname.endsWith('abc%40group')) return Response.json({ labelProperties: { eventLabels: [{ id: 'L', backgroundColor: '#f6bf26' }, { id: 'X', backgroundColor: 'url(evil)' }] } });
     lastEventsQuery = u;
     const second = u.searchParams.has('pageToken');
-    return Response.json({ items: [{ summary: second ? 'P2' : 'P1', colorId: '5', start: { date: '2026-11-27' }, end: { date: '2026-11-28' } }], ...(!second && { nextPageToken: 'n' }) });
+    return Response.json({ items: [{ summary: second ? 'P2' : 'P1', eventLabelId: 'L', start: { date: '2026-11-27' }, end: { date: '2026-11-28' } }], ...(!second && { nextPageToken: 'n' }) });
   },
   'api.open-meteo.com': () => Response.json({ current: { temperature_2m: 25.2, apparent_temperature: 23, weather_code: 3, is_day: 1 },
     daily: { time: ['2026-11-24', '2026-11-25'], weather_code: [3, 61], temperature_2m_max: [37, 41], temperature_2m_min: [21, 28], precipitation_probability_max: [0, null] } }),
@@ -43,7 +45,8 @@ before(async () => {
     { name: 'Band', type: 'google', account: 'mom', calendar: 'Band', color: '#445566', icon: 'music' },
   ] });
   board = new Board({ config, google, photos, dataDir: join(dir, 'data'), log() {}, now: () => new Date(2026, 10, 24, 9) });
-  server = createApp({ board, photos, google, photoImport: { status: 'idle', start: async (r) => `https://photos.google.com/${r}` }, log() {}, env: { ADMIN_PASSWORD: 'pw', DISPLAY_KEY: 'k', PUBLIC_URL: 'https://b.test' } });
+  const store = new ConfigStore({ board, file: join(dir, 'config.json'), iconExists });
+  server = createApp({ board, photos, google, store, photoImport: { status: 'idle', start: async (r) => `https://photos.google.com/${r}` }, log() {}, env: { ADMIN_PASSWORD: 'pw', DISPLAY_KEY: 'k', PUBLIC_URL: 'https://b.test' } });
   await new Promise((r) => server.listen(0, r));
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -54,6 +57,23 @@ const basic = { authorization: `Basic ${btoa('admin:pw')}` };
 const login = async () => (await get('/?key=k')).headers.get('set-cookie').split(';')[0];
 const day = (date) => board.snapshot().weeks.flatMap((w) => w.days).find((d) => d.date === date).events;
 
+test('calendars are edited only with the password and the form token', async () => {
+  const post = (fields, headers = basic) => realFetch(`${base}/admin/calendars`, { method: 'POST', redirect: 'manual', headers, body: new URLSearchParams(fields) });
+  const html = await (await get('/admin', basic)).text();
+  const token = html.match(/name="token" value="([^"]+)"/)[1];
+  assert.doesNotMatch(html, /secret-token/, 'iCal secrets stay hidden');
+  const fields = { action: 'add-ics', name: '<b>New</b>', color: '#123456', icon: 'soccer', url: 'https://feeds.test/n.ics', token };
+  assert.equal((await post(fields, {})).status, 401);
+  assert.equal((await post({ ...fields, token: 'forged' })).status, 403);
+  assert.equal((await post({ ...fields, icon: 'no-such-icon' })).status, 400);
+  assert.equal((await post({ ...fields, name: 'x'.repeat(20000) })).status, 400);
+  assert.equal(board.config.calendars.length, 2);
+  assert.equal((await post(fields)).status, 303);
+  assert.equal(board.config.calendars[2].name, '<b>New</b>');
+  assert.doesNotMatch(await (await get('/admin', basic)).text(), /<b>New/);
+  assert.equal((await post({ action: 'remove', was: '<b>New</b>', token })).status, 303);
+  assert.equal(board.config.calendars.length, 2);
+});
 test('board is private without the key', async () => {
   for (const p of ['/', '/api/board', '/photos/0123456789abcdef']) assert.equal((await get(p)).status, 403);
   assert.equal((await get('/?key=bad')).status, 403);
@@ -70,7 +90,7 @@ test('admin needs the password and rejects unknown accounts and forged state', a
   assert.match(scope, /photospicker/);
   assert.equal((await get('/admin/photos')).status, 401);
   assert.equal((await get('/admin/photos?mode=replace', basic)).headers.get('location'), 'https://photos.google.com/true');
-  assert.equal((await get('/admin/connect?account=evil', basic)).status, 400);
+  assert.equal((await get('/admin/connect?account=bad%20name', basic)).status, 400);
   assert.equal((await get('/admin/oauth/callback?code=x&state=forged', basic)).status, 400);
   assert.equal((await get('/admin/oauth/callback', basic)).status, 400);
 });
@@ -83,7 +103,9 @@ test('google connects, finds the calendar by name and pages through events', asy
   await board.refresh();
   assert.match(lastEventsQuery.pathname, /abc%40group/);
   assert.deepEqual(day('2026-11-27').map((e) => [e.title, e.color, e.icon]), [['P1', '#f6bf26', 'music'], ['P2', '#f6bf26', 'music']]);
-  assert.match(await (await get('/admin', basic)).text(), /abc@group/);
+  const html = await (await get('/admin', basic)).text();
+  assert.match(html, /1 calendars to add[\s\S]*free@group/);
+  assert.doesNotMatch(html, /abc@group|<i>Free|bad"/, 'used ones are not offered again; names are escaped');
 });
 test('a failing feed keeps its last events, also after a restart', async () => {
   icsUp = false;

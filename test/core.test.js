@@ -75,6 +75,9 @@ test('google: event color kept, declined and cancelled dropped', () => {
   const base = { summary: 'X', start: { date: '2026-12-01' }, end: { date: '2026-12-02' } };
   assert.equal(normalizeGoogle({ ...base, colorId: '5' }).color, '#f6bf26');
   assert.equal('color' in normalizeGoogle(base), false);
+  const labels = new Map([['L', '#123456']]);
+  assert.equal(normalizeGoogle({ ...base, eventLabelId: 'L', colorId: '5' }, labels).color, '#123456');
+  assert.equal(normalizeGoogle({ ...base, eventLabelId: 'gone', colorId: '5' }, labels).color, '#f6bf26');
   assert.equal(normalizeGoogle({ ...base, status: 'cancelled' }), null);
   assert.equal(normalizeGoogle({ ...base, attendees: [{ self: true, responseStatus: 'declined' }] }), null);
 });
