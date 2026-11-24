@@ -1,0 +1,21 @@
+# Paste into TrueNAS: Apps > Discover Apps > Custom App > Install via YAML.
+# Build the image first (docs/DEPLOY.md), then change POOL and the secrets.
+services:
+  homeboard:
+    image: homeboard:latest
+    pull_policy: never
+    restart: unless-stopped
+    user: "568:568" # TrueNAS "apps" user
+    ports:
+      - "8480:8080"
+    environment:
+      TZ: America/Chicago
+      PUBLIC_URL: https://board.example.com
+      ADMIN_PASSWORD: change-me-long-random
+      # Open https://board.example.com/?key=<DISPLAY_KEY> once per screen
+      DISPLAY_KEY: change-me-also-random
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
+    volumes:
+      - /mnt/POOL/apps/homeboard/data:/data
+      - /mnt/POOL/photos/board:/photos:ro
