@@ -14,6 +14,13 @@ Template for each entry:
 - **Traps:** anything surprising that cost time (also add to CLAUDE.md › Gotchas if durable)
 -->
 
+## 2026-11-27 — Layouts and custom styling
+- **Goal:** fixed 3-week grid, layouts, shorter titles, custom CSS/HTML (docs/specs/001-layouts-and-custom-styling.md).
+- **Done:** Open Props tokens in cascade layers, Pico admin, 4 layouts, quote/joke widgets, shorten rules, custom.css/html.
+- **Verified:** `bash scripts/verify.sh`; all four layouts, overflow, live layout change and custom files checked by hand in the demo.
+- **Next:** deploy; browser behavior has no automated test yet.
+- **Traps:** the in-app preview browser blocks iframes (ERR_BLOCKED_BY_CLIENT); check custom HTML in Chrome.
+
 ## 2026-11-24 — Calendar management
 - **Goal:** manage calendars without editing config.json; load Google's key file.
 - **Done:** admin forms (`src/admin*.js`, `src/config-edit.js`), `data/google-client.json`, Google event labels.

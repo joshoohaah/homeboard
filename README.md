@@ -3,9 +3,10 @@
 Self-hosted family wall calendar: a DAKboard-style screen for Google and iCal calendars, weather and photos.
 Not affiliated with DAKboard.
 
-- Rolling week grid with week numbers, full titles, a color and icon per calendar, and Google's event colors
+- Fixed grid of the current week plus the next ones, with week numbers, full titles, a color and icon per calendar, and Google's event colors
 - Several Google accounts, plus any iCal link
 - Weather and air quality (Open-Meteo), word of the day, photos from a folder or picked from Google Photos
+- Four layouts, quote and joke of the day, shorter titles, and your own CSS and HTML ([CUSTOMIZE.md](docs/CUSTOMIZE.md))
 - Keeps the last good data when a source fails; display key and password-protected admin page
 
 ## Quick start

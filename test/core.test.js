@@ -1,19 +1,20 @@
 import './setup.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWeeks, eventsByDay, gridRange, isoWeek } from '../src/grid.js';
+import { buildWeeks, eventsByDay, gridRange, isoWeek, timeLabel, dayLetters } from '../src/grid.js';
+import { compileRules, shorten } from '../src/text.js';
 import { parseIcs } from '../src/ics.js';
 import { normalizeGoogle } from '../src/google.js';
 import { parseWord, aqiBand, describe } from '../src/feeds.js';
 import { validateConfig } from '../src/config.js';
 
 const now = new Date(2026, 10, 24, 9, 45);
-const range = gridRange(now, 6);
+const range = gridRange(now, 6, 'sunday');
 const cals = (body) => `BEGIN:VCALENDAR\r\nVERSION:2.0\r\n${body.trim().replace(/\n/g, '\r\n')}\r\nEND:VCALENDAR\r\n`;
 const ev = (uid, rest) => `BEGIN:VEVENT\nUID:${uid}\nSUMMARY:${uid}\n${rest}\nEND:VEVENT\n`;
 
 test('grid starts on Sunday, with the week numbers and labels DAKboard shows', () => {
-  const weeks = buildWeeks([], now, 6);
+  const weeks = buildWeeks([], now, { weeks: 6, weekStart: 'sunday' });
   assert.deepEqual(weeks.map((w) => w.number), [48, 49, 50, 51, 52, 53]);
   assert.equal(weeks[0].days[0].label, 'Nov');
   assert.equal(weeks[0].days[2].today, true);
@@ -22,7 +23,7 @@ test('grid starts on Sunday, with the week numbers and labels DAKboard shows', (
 });
 test('iso week handles the year boundary', () => assert.equal(isoWeek(new Date(2027, 0, 4)), 1));
 test('days stay distinct across a DST change', () => {
-  const days = buildWeeks([], new Date(2026, 10, 1), 1)[0].days.map((d) => d.date);
+  const days = buildWeeks([], new Date(2026, 10, 1), { weeks: 1, weekStart: 'sunday' })[0].days.map((d) => d.date);
   assert.equal(new Set(days).size, 7);
   assert.equal(days[6], '2026-11-07');
 });
@@ -97,9 +98,50 @@ test('aqi bands and night icon', () => {
 test('config errors name the problem', () => {
   const ok = { location: { latitude: 1, longitude: 2 }, calendars: [] };
   const cal = { name: 'a', type: 'ics', url: 'https://x.test/a.ics', color: '#ffffff' };
-  assert.equal(validateConfig(ok).weeks, 6);
+  assert.equal(validateConfig(ok).weeks, 3);
+  assert.throws(() => validateConfig({ ...ok, weeks: 7 }), /weeks/);
+  assert.throws(() => validateConfig({ ...ok, weekStart: 'friday' }), /weekStart/);
+  assert.throws(() => validateConfig({ ...ok, layout: { preset: 'middle' } }), /preset/);
+  assert.throws(() => validateConfig({ ...ok, layout: { widgets: ['clock', 'clock'] } }), /widgets/);
+  assert.throws(() => validateConfig({ ...ok, layout: { widgets: ['ads'] } }), /widgets/);
+  assert.throws(() => validateConfig({ ...ok, shorten: [{ match: '(', replace: '', regex: true }] }), /pattern/);
+  assert.throws(() => validateConfig({ ...ok, shorten: [{ match: '', replace: '' }] }), /match/);
+  for (const bad of ['(\\w+\\s?)+$', '(a*)*', '(x+){2,}']) assert.throws(() => validateConfig({ ...ok, shorten: [{ match: bad, replace: '', regex: true }] }), /freeze/, bad);
+  assert.doesNotThrow(() => validateConfig({ ...ok, shorten: [{ match: 'Work: (\\w+)', replace: '', regex: true }, { match: '\\s*\\(\\d\\d:\\d\\d-.*\\)', replace: '', regex: true }] }));
+  assert.deepEqual(validateConfig({ ...ok, layout: { preset: 'top' } }).layout.widgets.slice(0, 2), ['clock', 'weather']);
   assert.throws(() => validateConfig({ ...ok, weeks: 0 }), /weeks/);
   assert.throws(() => validateConfig({ ...ok, location: {} }), /location/);
   assert.throws(() => validateConfig({ ...ok, calendars: [cal, cal] }), /unique/);
   assert.throws(() => validateConfig({ ...ok, calendars: [{ ...cal, url: 'file:///etc/passwd' }] }), /url/);
+});
+
+test('default grid: 3 Monday-first weeks with the current week first, at month and year ends', () => {
+  const week = (date) => buildWeeks([], date, { weeks: 3, weekStart: 'monday' });
+  const w = week(now);
+  assert.deepEqual([w.length, w[0].days[0].date, w[2].days[6].date], [3, '2026-11-23', '2026-12-13']);
+  assert.deepEqual(w.map((x) => x.number), [48, 49, 50]);
+  assert.equal(w[0].days[1].today, true);
+  const sunday = week(new Date(2026, 10, 29, 23));
+  assert.equal(sunday[0].days[6].today, true, 'Sunday stays in the current row');
+  const newYear = week(new Date(2026, 11, 31));
+  assert.deepEqual([newYear[0].days[0].date, newYear.map((x) => x.number)], ['2026-12-28', [53, 1, 2]]);
+  assert.deepEqual(dayLetters('monday'), ['M', 'T', 'W', 'T', 'F', 'S', 'S']);
+});
+test('short times drop :00 and use a or p', () => {
+  assert.deepEqual([new Date(2026, 0, 1, 18), new Date(2026, 0, 1, 12, 41), new Date(2026, 0, 1, 0, 5)].map((d) => timeLabel(d, 'short')), ['6p', '12:41p', '12:05a']);
+  assert.equal(timeLabel(new Date(2026, 0, 1, 18), 'long'), '6:00pm');
+});
+test('shortening rules: plain text, patterns, per calendar, never empty', () => {
+  const rules = compileRules([
+    { match: 'Varsity Wrestling - ', replace: 'VW ' },
+    { match: '\\s*\\(\\d\\d:\\d\\d-.*\\)', replace: '', regex: true },
+    { match: 'Work: (\\w+)', replace: 'Shift $1', regex: true, calendar: 'Work' },
+    { match: 'cost $5', replace: '$&' },
+    { match: 'Everything', replace: '' },
+  ]);
+  assert.equal(shorten('varsity wrestling - Dual @ North', 'Team', rules), 'VW Dual @ North');
+  assert.equal(shorten('Work: 7a12 (07:00-19:30 CST)', 'Work', rules), 'Shift 7a12');
+  assert.equal(shorten('Work: 7a12 (07:00-19:30 CST)', 'Other', rules), 'Work: 7a12');
+  assert.equal(shorten('Lunch cost $5 each', 'x', rules), 'Lunch $& each', 'plain replacements are literal');
+  assert.equal(shorten('Everything', 'x', rules), 'Everything');
 });

@@ -4,6 +4,7 @@ import { access, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { isDisplay, isHttps, displayCookie, same } from './auth.js';
 import { createAdmin } from './admin-routes.js';
+import { CUSTOM_HTML_CSP, customPage } from './custom.js';
 
 const root = (p) => fileURLToPath(new URL(`../${p}`, import.meta.url));
 const iconPath = (name) => `node_modules/@mdi/svg/svg/${name}.svg`;
@@ -11,11 +12,12 @@ const STATIC = {
   '/': ['public/index.html', 'text/html; charset=utf-8'],
   '/board.css': ['public/board.css', 'text/css'],
   '/board.js': ['public/board.js', 'text/javascript'],
+  '/vendor/open-props.css': ['node_modules/open-props/open-props.min.css', 'text/css'],
   '/font.woff2': ['node_modules/@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2', 'font/woff2'],
 };
 const FAILED_LOGIN_DELAY_MS = 1000;
 const HEADERS = {
-  'content-security-policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:",
+  'content-security-policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-src 'self'",
   'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer',
 };
 // The admin page must not be framed by another site; the board may be (for example in Home Assistant).
@@ -33,12 +35,17 @@ const sendFile = async (res, [path, type], cache = 'no-cache') =>
   send(res, 200, await readFile(root(path)), type, { 'cache-control': cache });
 const sendAdmin = (res, code, body, type, extra = {}) => send(res, code, body, type, { ...ADMIN_HEADERS, ...extra });
 
-export function createApp({ board, photos, google, photoImport, store, env, log = console.error }) {
-  const admin = createAdmin({ board, google, photoImport, store, env, log, send: sendAdmin, sendFile, redirect });
+export function createApp({ board, photos, google, photoImport, store, custom, env, log = console.error }) {
+  const admin = createAdmin({ board, google, photoImport, store, custom, env, log, send: sendAdmin, sendFile, redirect });
 
   async function display(res, pathname) {
     if (STATIC[pathname]) return sendFile(res, STATIC[pathname]);
-    if (pathname === '/api/board') return send(res, 200, JSON.stringify(board.snapshot()), 'application/json');
+    if (pathname === '/api/board') await custom.refresh();
+    if (pathname === '/api/board') return send(res, 200, JSON.stringify({ ...board.snapshot(), custom: custom.version }), 'application/json');
+    // Loaded last, so the owner's rules win over the built-in layers.
+    if (pathname === '/custom.css' || pathname === '/custom.html') await custom.refresh();
+    if (pathname === '/custom.css') return send(res, 200, custom.css, 'text/css; charset=utf-8');
+    if (pathname === '/custom.html') return send(res, 200, customPage(custom.html), 'text/html; charset=utf-8', { 'content-security-policy': CUSTOM_HTML_CSP });
     const photo = pathname.match(/^\/photos\/([0-9a-f]{16})$/)?.[1];
     const image = photo && await photos.render(photo);
     if (image) return send(res, 200, image, 'image/jpeg', { 'cache-control': 'private, max-age=3600' });

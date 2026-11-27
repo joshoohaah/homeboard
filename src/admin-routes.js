@@ -6,7 +6,8 @@ import { iconIndex } from './icons.js';
 import { PHOTOS_ACCOUNT } from './google.js';
 
 const FAILED_LOGIN_DELAY_MS = 1000;
-const MAX_BODY = 10_000;
+// custom.css can be 50,000 characters, and non-Latin text grows up to 9 bytes each when form-encoded.
+const MAX_BODY = 500_000;
 const HTML = 'text/html; charset=utf-8';
 
 async function readForm(req) {
@@ -18,7 +19,7 @@ async function readForm(req) {
   return Object.fromEntries(new URLSearchParams(body));
 }
 
-export function createAdmin({ board, google, photoImport, store, env, log, send, sendFile, redirect }) {
+export function createAdmin({ board, google, photoImport, store, custom, env, log, send, sendFile, redirect }) {
   // Browsers resend Basic credentials on their own, so a form must also carry this.
   const token = randomBytes(24).toString('base64url');
 
@@ -52,13 +53,15 @@ export function createAdmin({ board, google, photoImport, store, env, log, send,
     try {
       const { token: sent, action, ...fields } = await readForm(req);
       if (!same(sent ?? '', token)) return send(res, 403, errorHtml('This page was out of date. Go back, reload it and try again.'), HTML);
-      await store.apply(action, fields);
+      if (action === 'custom-css' || action === 'custom-html') await custom.save(action.slice(7), fields.text);
+      else await store.apply(action, fields);
+      const section = /^[a-z-]+$/.test(fields.section ?? '') ? `#${fields.section}` : '';
+      board.refreshSoon();
+      return redirect(res, `/admin${section}`, {}, 303);
     } catch (err) {
-      log('calendar edit:', err.message);
+      log('admin edit:', err.message);
       return send(res, 400, errorHtml(err.message.replace(/^config\.json: /, '')), HTML);
     }
-    board.refreshSoon();
-    return redirect(res, '/admin', { }, 303);
   }
 
   return async function admin(req, res, url) {
@@ -67,8 +70,9 @@ export function createAdmin({ board, google, photoImport, store, env, log, send,
       if (req.headers.authorization) await sleep(FAILED_LOGIN_DELAY_MS);
       return send(res, 401, 'Sign in required', undefined, { 'www-authenticate': 'Basic realm="Homeboard", charset="UTF-8"' });
     }
-    if (req.method === 'POST') return url.pathname === '/admin/calendars' ? edit(req, res) : send(res, 405, 'Method not allowed');
-    if (url.pathname === '/admin') return send(res, 200, await adminHtml({ board, google, photoImport, token }), HTML);
+    if (req.method === 'POST') return url.pathname === '/admin/save' ? edit(req, res) : send(res, 405, 'Method not allowed');
+    if (url.pathname === '/admin') return send(res, 200, await adminHtml({ board, google, photoImport, custom, token }), HTML);
+    if (url.pathname === '/admin/pico.css') return sendFile(res, ['node_modules/@picocss/pico/css/pico.classless.min.css', 'text/css'], 'max-age=86400');
     if (url.pathname === '/admin/icon-picker.js') return sendFile(res, ['public/icon-picker.js', 'text/javascript']);
     if (url.pathname === '/admin/icons.json') return send(res, 200, JSON.stringify(await iconIndex()), 'application/json', { 'cache-control': 'private, max-age=86400' });
     if (url.pathname === '/admin/oauth/callback') return callback(res, url);
