@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { deepMerge, readCompose } from './settings-sources.js';
 
 const SOURCE_TYPES = new Set(['google', 'ics', 'static']);
 export const PRESETS = ['left', 'right', 'top', 'calendar'];
@@ -13,13 +14,13 @@ const DEFAULT_ALERTS = { webhook: '', delayMinutes: 60 };
 const DEFAULT_LAYOUT = { preset: 'left', legend: true, widgets: ['clock', 'weather', 'aqi', 'forecast', 'word', 'photos'] };
 const DEFAULTS = {
   title: 'Homeboard', weeks: 3, weekStart: 'monday', timeFormat: 'short',
-  refreshMinutes: 5, photoSeconds: 30, colorRules: [], shorten: [],
+  refreshMinutes: 5, photoSeconds: 30, colorRules: [], shorten: [], calendars: [],
 };
 const HEX = /^#[0-9a-f]{6}$/i;
 const MAX_RULE_LENGTH = 200;
 const MAX_NAME_LENGTH = 60;
 
-function fail(message) { throw new Error(`config.json: ${message}`); }
+function fail(message) { throw new Error(`Settings: ${message}`); }
 
 function checkCalendar(cal, i) {
   const where = `calendars[${i}]`;
@@ -56,8 +57,8 @@ function checkNight(night) {
   if (!Array.isArray(night.windows) || night.windows.length > WINDOW_ROWS) fail(`night.windows must be a list of up to ${WINDOW_ROWS}`);
   for (const w of night.windows) {
     const days = Array.isArray(w.days) ? w.days : [];
-    if (!days.length || days.some((d) => !Number.isInteger(d) || d < 0 || d > 6)) fail('each night window needs days (0 = Sunday to 6 = Saturday)');
-    if (!HHMM.test(w.start ?? '') || !HHMM.test(w.end ?? '') || w.start === w.end) fail('each night window needs different start and end times like 22:00');
+    if (!days.length || days.some((d) => !Number.isInteger(d) || d < 0 || d > 6)) fail('night.windows: each needs days (0 = Sunday to 6 = Saturday)');
+    if (!HHMM.test(w.start ?? '') || !HHMM.test(w.end ?? '') || w.start === w.end) fail('night.windows: each needs different start and end times like 22:00');
   }
 }
 
@@ -95,8 +96,9 @@ export function validateConfig(raw) {
   }
   const { latitude, longitude } = config.location ?? {};
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) fail('location needs latitude and longitude');
+  if (!['fahrenheit', 'celsius', undefined].includes(config.location.units)) fail('location.units must be fahrenheit or celsius');
   for (const r of config.colorRules) {
-    if (typeof r.match !== 'string' || !r.match || !HEX.test(r.color ?? '')) fail('each colorRule needs match and color');
+    if (typeof r.match !== 'string' || !r.match || !HEX.test(r.color ?? '')) fail('colorRules: each needs match and color');
   }
   checkLayout(config.layout);
   checkNight(config.night);
@@ -107,6 +109,39 @@ export function validateConfig(raw) {
   return config;
 }
 
+/** What the admin page saved; missing is fine when compose provides the settings. */
+async function readAdminFile(path) {
+  try { return JSON.parse(await readFile(path, 'utf8')); } catch (err) {
+    if (err.code === 'ENOENT') return {};
+    throw new Error(`Settings: ${path} could not be read (${err instanceof SyntaxError ? 'not valid JSON' : err.code})`);
+  }
+}
+
+/**
+ * Effective settings: defaults < admin file < CONFIG_FILE < HOMEBOARD_* variables.
+ * @returns {Promise<{ config: object, compose: { settings: object, sources: Record<string, string>, file: string|null } }>}
+ */
+/** Adds where a bad setting came from: a variable, CONFIG_FILE, or the admin page's data/config.json. */
+function blame(err, compose) {
+  const text = err.message.replace(/^Settings: /, '');
+  const path = text.match(/^[\w.]+/)?.[0] ?? '';
+  const hits = Object.entries(compose.sources)
+    .filter(([p]) => p === path || p.startsWith(`${path}.`) || path.startsWith(`${p}.`) || path.startsWith(`${p}[`))
+    .map(([, from]) => from);
+  const from = hits.length ? [...new Set(hits)].join(', ') : 'data/config.json (the admin page) or the defaults';
+  return new Error(`Settings: ${text} (set by ${from})`);
+}
+
+export async function loadSettings(adminFile, env) {
+  const compose = readCompose(env, adminFile);
+  const admin = await readAdminFile(adminFile);
+  try {
+    return { config: validateConfig(deepMerge(admin, compose.settings)), compose, admin };
+  } catch (err) {
+    throw blame(err, compose);
+  }
+}
+
 export async function loadConfig(path) {
-  return validateConfig(JSON.parse(await readFile(path, 'utf8')));
+  return (await loadSettings(path, {})).config;
 }

@@ -1,6 +1,7 @@
 import { PHOTOS_ACCOUNT } from './google.js';
 import { esc, hidden, layoutHtml, shortenHtml, customHtml } from './admin-settings.js';
-import { nightHtml, alertsHtml } from './admin-ops.js';
+import { nightHtml, alertsHtml, sourcesHtml } from './admin-ops.js';
+import { lockNote } from './admin-settings.js';
 // Pico styles the page by its HTML; these rules only fit the compact rows and the icon picker.
 const STYLE = `body>main{max-width:72rem;margin:0 auto;padding:1.5rem 1rem}h2{margin-top:2.5rem}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:0 1rem}
@@ -33,6 +34,16 @@ function sourceText(c) {
 const currentForm = (token) => (c, i) => `<form method="post" action="/admin/save" class="row">${hidden({ token, was: c.name })}${lookInputs(c)}
 <small>${esc(sourceText(c))}</small>${button('update', 'Save')}${i ? button('up', 'Move up') : ''}<details><summary>Remove</summary>${button('remove', 'Yes, remove', 'secondary')}</details></form>`;
 
+/** Editable rows, or a plain list when compose defines the calendars. */
+function calendarsHtml(config, token, compose) {
+  if (compose?.sources?.calendars) {
+    const rows = config.calendars.map((c) => `<tr><td><span style="color:${esc(c.color)}">●</span> ${esc(c.name)}</td><td>${esc(sourceText(c))}</td></tr>`).join('');
+    return `${lockNote(compose, ['calendars'])}<table class="compact"><tbody>${rows}</tbody></table>`;
+  }
+  return `${config.calendars.map(currentForm(token)).join('') || '<p>None yet.</p>'}
+<h3>Add an iCal link</h3><form method="post" action="/admin/save" class="row">${hidden({ token })}${lookInputs({})}<input type="url" name="url" placeholder="https:// or webcal:// link" aria-label="iCal link" required>${button('add-ics', 'Add')}</form>`;
+}
+
 /** Calendar lists of every connected account, with a message for any that fail. */
 async function accountLists(board, google, tokens) {
   const names = [...new Set([
@@ -47,7 +58,7 @@ async function accountLists(board, google, tokens) {
   }));
 }
 
-function accountHtml({ name, connected, list, error }, config, token) {
+function accountHtml({ name, connected, list, error }, config, token, canAdd) {
   const link = `<a href="/admin/connect?account=${encodeURIComponent(name)}">${connected ? 'Reconnect' : 'Connect'}</a>`;
   const used = new Set(config.calendars.filter((c) => c.account === name).map((c) => c.calendar));
   const taken = new Set(config.calendars.map((c) => c.name));
@@ -59,7 +70,7 @@ function accountHtml({ name, connected, list, error }, config, token) {
 ${lookInputs({ name: taken.has(title) ? `${title} (${name})` : title, color })}<small>${esc(title)}</small>${button('add-google', 'Add')}</form>`;
   });
   const state = connected ? `connected${error ? `, but its calendars could not be listed: ${esc(error)}` : ''}` : 'not connected';
-  const body = rows.length ? `<details><summary>${rows.length} calendars to add</summary>${rows.join('')}</details>` : '';
+  const body = rows.length && canAdd ? `<details><summary>${rows.length} calendars to add</summary>${rows.join('')}</details>` : '';
   return `<h3>${esc(name)}</h3><p>${state}. ${link}</p>${body}`;
 }
 
@@ -79,22 +90,22 @@ function statusHtml(board) {
   return `<table><tr><th>Source</th><th>Last good update</th><th>Status</th></tr>${rows.join('')}</table>`;
 }
 
-const googleHtml = (accounts, config, token) => `${accounts.map((a) => accountHtml(a, config, token)).join('')}
+const googleHtml = (accounts, config, token, canAdd) => `${accounts.map((a) => accountHtml(a, config, token, canAdd)).join('')}
 <h3>Another account</h3><form action="/admin/connect" class="row"><input name="account" placeholder="Short name, e.g. grandma" aria-label="Account name" required pattern="[A-Za-z0-9_\\-]+"><button>Connect</button></form>`;
 
-export async function adminHtml({ board, google, photoImport, custom, version, token }) {
+export async function adminHtml({ board, google, photoImport, custom, version, token, compose }) {
   const tokens = await google.tokens();
   const { config } = board;
   const accounts = google.configured ? await accountLists(board, google, tokens) : [];
   return page(`<h1>Homeboard</h1><p><a href="/">Open the board</a> · <small>version ${esc(version.version)}</small></p>
-<h2 id="calendars">Calendars on the board</h2>${config.calendars.map(currentForm(token)).join('') || '<p>None yet.</p>'}
-<h2>Add an iCal link</h2><form method="post" action="/admin/save" class="row">${hidden({ token })}${lookInputs({})}<input type="url" name="url" placeholder="https:// or webcal:// link" aria-label="iCal link" required>${button('add-ics', 'Add')}</form>
-<h2>Google accounts</h2>${google.configured ? googleHtml(accounts, config, token) : '<p>Add google-client.json to the data folder first.</p>'}
-<h2 id="layout">Layout</h2>${layoutHtml(config, token)}
-<h2 id="night">Quiet mode</h2>${nightHtml(config.night, token)}
-<h2 id="alerts">Alerts</h2>${alertsHtml(config.alerts, token)}
-<h2 id="shorten">Shorter titles</h2>${shortenHtml(config, board.titles(), token)}
+<h2 id="calendars">Calendars on the board</h2>${calendarsHtml(config, token, compose)}
+<h2>Google accounts</h2>${google.configured ? googleHtml(accounts, config, token, !compose?.sources?.calendars) : '<p>Add google-client.json to the data folder first.</p>'}
+<h2 id="layout">Layout</h2>${layoutHtml(config, token, compose)}
+<h2 id="night">Quiet mode</h2>${nightHtml(config.night, token, compose)}
+<h2 id="alerts">Alerts</h2>${alertsHtml(config.alerts, token, compose)}
+<h2 id="shorten">Shorter titles</h2>${shortenHtml(config, board.titles(), token, compose)}
 <h2 id="custom">Custom style and HTML</h2>${customHtml(custom, token)}
 <h2>Google Photos</h2>${photosHtml(Boolean(tokens[PHOTOS_ACCOUNT]), google, photoImport)}
+<h2 id="sources">Configuration</h2>${sourcesHtml(compose)}
 <h2>Status</h2>${statusHtml(board)}`);
 }

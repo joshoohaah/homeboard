@@ -32,7 +32,8 @@ src/            server: board.js collects sources, grid.js lays out weeks
 public/         the page the wall screen shows
 test/           node:test suites
 demo/           invented events; data/ (git-ignored) holds the real setup
-docs/DEPLOY.md  TrueNAS, Google and Raspberry Pi steps
+docs/DEPLOY.md  Google, container, settings reference, Pi; docs/CUSTOMIZE.md styling
+config.example.yaml, compose.yaml   the deployment examples users copy
 docs/specs/     one spec per feature (write before coding non-trivial work)
 docs/decisions/ ADRs — why things are the way they are
 scripts/        verify.sh and other automation
@@ -85,6 +86,9 @@ PROGRESS.md     running handoff log between sessions
 - This repo is public: no real names, addresses, coordinates or schedules in code, tests, demo or docs.
 - Day math uses the process time zone; tests import `test/setup.js` first to fix `TZ`.
 - The server refuses to start with an https `PUBLIC_URL` and no `DISPLAY_KEY`.
+- Settings layers: defaults < data/config.json (admin) < CONFIG_FILE < HOMEBOARD_* (src/settings-sources.js). A new
+  setting needs a variable there, a row in docs/DEPLOY.md, and a lock on its admin field.
+- Keep README and docs/DEPLOY.md current in the same PR as any user-visible change.
 
 ## More context (read when needed)
 

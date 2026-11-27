@@ -1,6 +1,6 @@
 {
   "name": "homeboard",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -17,6 +17,7 @@
     "@picocss/pico": "^2.1.1",
     "node-ical": "^0.27.6",
     "open-props": "^1.7.23",
-    "sharp": "^0.35.5"
+    "sharp": "^0.35.5",
+    "yaml": "^2.9.1"
   }
 }

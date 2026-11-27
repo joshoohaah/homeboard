@@ -6,6 +6,7 @@ import { join } from 'node:path';
  * @returns {Promise<{ clientId?: string, clientSecret?: string }>}
  */
 export async function loadGoogleKey(env, dataDir, redirectUri) {
+  // GOOGLE_CLIENT_SECRET may come from GOOGLE_CLIENT_SECRET_FILE; server.js resolves it.
   if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
     return { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET };
   }

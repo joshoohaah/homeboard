@@ -1,0 +1,45 @@
+# Homeboard settings file. Mount it read-only and set CONFIG_FILE to its path (see compose.yaml).
+# Everything here is optional and locked on the admin page; HOMEBOARD_* variables win over this file.
+# Leave a setting out to manage it on the admin page instead.
+
+title: Family Board
+
+location:
+  latitude: 40.71
+  longitude: -74.01
+  units: fahrenheit            # or celsius
+
+# timeZone: America/Chicago    # IANA name
+# weeks: 3                     # 1-6, current week first
+# weekStart: monday            # or sunday
+# timeFormat: short            # 6p (short) or 6:00pm (long)
+
+# layout:
+#   preset: left               # left, right, top, calendar
+#   legend: true
+#   widgets: [clock, weather, aqi, forecast, word, quote, joke, photos, custom]
+
+# night:                       # quiet mode
+#   enabled: true
+#   brightness: 40             # percent
+#   show: [clock, date, next, weather]
+#   windows:                   # days: 0 = Sunday ... 6 = Saturday
+#     - { days: [0, 1, 2, 3, 4], start: "21:30", end: "06:30" }
+#     - { days: [5, 6], start: "23:00", end: "08:00" }
+
+# alerts:
+#   delayMinutes: 60           # the webhook is a secret: use HOMEBOARD_ALERTS_WEBHOOK_FILE
+
+calendars:
+  # Google: "account" is a short name you connect once on the admin page; "calendar" is its name or ID there.
+  - { name: Parent, type: google, account: parent, calendar: parent@example.com, color: "#e67c73", icon: heart-circle }
+  - { name: Family, type: google, account: parent, calendar: Family, color: "#9e69af", icon: home-heart }
+  # Any iCal link:
+  - { name: Team, type: ics, url: "https://example.com/team.ics", color: "#4285f4", icon: soccer }
+
+colorRules:                    # matched against the full title; wins over Google's colors
+  - { match: soccer, color: "#f6bf26" }
+
+shorten:                       # run in order on every title, ignoring case
+  - { match: "Varsity Wrestling - ", replace: "VW " }
+  - { match: '\s*\(\d\d:\d\d-.*\)', replace: "", regex: true }   # removes "(07:00-19:30 CST)"
