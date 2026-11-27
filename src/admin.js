@@ -1,5 +1,6 @@
 import { PHOTOS_ACCOUNT } from './google.js';
 import { esc, hidden, layoutHtml, shortenHtml, customHtml } from './admin-settings.js';
+import { nightHtml, alertsHtml } from './admin-ops.js';
 // Pico styles the page by its HTML; these rules only fit the compact rows and the icon picker.
 const STYLE = `body>main{max-width:72rem;margin:0 auto;padding:1.5rem 1rem}h2{margin-top:2.5rem}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:0 1rem}
@@ -81,15 +82,17 @@ function statusHtml(board) {
 const googleHtml = (accounts, config, token) => `${accounts.map((a) => accountHtml(a, config, token)).join('')}
 <h3>Another account</h3><form action="/admin/connect" class="row"><input name="account" placeholder="Short name, e.g. grandma" aria-label="Account name" required pattern="[A-Za-z0-9_\\-]+"><button>Connect</button></form>`;
 
-export async function adminHtml({ board, google, photoImport, custom, token }) {
+export async function adminHtml({ board, google, photoImport, custom, version, token }) {
   const tokens = await google.tokens();
   const { config } = board;
   const accounts = google.configured ? await accountLists(board, google, tokens) : [];
-  return page(`<h1>Homeboard</h1><p><a href="/">Open the board</a></p>
+  return page(`<h1>Homeboard</h1><p><a href="/">Open the board</a> · <small>version ${esc(version.version)}</small></p>
 <h2 id="calendars">Calendars on the board</h2>${config.calendars.map(currentForm(token)).join('') || '<p>None yet.</p>'}
 <h2>Add an iCal link</h2><form method="post" action="/admin/save" class="row">${hidden({ token })}${lookInputs({})}<input type="url" name="url" placeholder="https:// or webcal:// link" aria-label="iCal link" required>${button('add-ics', 'Add')}</form>
 <h2>Google accounts</h2>${google.configured ? googleHtml(accounts, config, token) : '<p>Add google-client.json to the data folder first.</p>'}
 <h2 id="layout">Layout</h2>${layoutHtml(config, token)}
+<h2 id="night">Quiet mode</h2>${nightHtml(config.night, token)}
+<h2 id="alerts">Alerts</h2>${alertsHtml(config.alerts, token)}
 <h2 id="shorten">Shorter titles</h2>${shortenHtml(config, board.titles(), token)}
 <h2 id="custom">Custom style and HTML</h2>${customHtml(custom, token)}
 <h2>Google Photos</h2>${photosHtml(Boolean(tokens[PHOTOS_ACCOUNT]), google, photoImport)}

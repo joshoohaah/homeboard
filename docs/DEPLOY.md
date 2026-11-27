@@ -19,8 +19,7 @@ Access is read-only. Tokens are stored in the `data` dataset in `google-tokens.j
 
 1. Create datasets for `data` and photos. Give the `apps` user (568) write on `data`, read on photos.
 2. Copy `config.example.json` to the `data` dataset as `config.json`. Fill in your calendars and coordinates.
-3. Copy this folder (without `node_modules`) to the NAS and build in its shell:
-   `sudo docker build -t homeboard:latest /mnt/POOL/apps/homeboard/src`
+3. Nothing to build: the image `ghcr.io/joshoohaah/homeboard` is published for every change to `main`.
 4. **Apps > Custom App > Install via YAML**: paste `compose.yaml` with your pool, domain and secrets.
 5. Point your reverse proxy at port 8480. The proxy must send `X-Forwarded-Proto` (Traefik, Caddy and
    Nginx Proxy Manager do). The local address `http://NAS:8480/?key=...` works too; the key then crosses your LAN unencrypted.
@@ -33,7 +32,47 @@ Access is read-only. Tokens are stored in the `data` dataset in `google-tokens.j
    in to that same account, press Done, and the board copies them to `data/imported-photos` (up to 2000 per pick).
    Google no longer lets apps follow an album, so pick again to add newer photos. The `/photos` folder is optional.
 
-To update: copy the files, build again, restart the app.
+### Updating
+
+- **Latest:** in TrueNAS, open the app and choose **Update** (or **Pull image** and restart). Wall screens reload
+  themselves within a minute when the page has changed; no trip to the Pi.
+- **Pinned:** use a version tag such as `:0.2.0` or a commit tag such as `:sha-1a2b3c4` in the YAML, and change
+  it when you want to move. The running version shows on the admin page and at `/healthz`.
+
+### Backups
+
+The `data` dataset holds everything that matters: `config.json`, `google-client.json`, `google-tokens.json`,
+`custom.css`, `custom.html` and photos picked from Google Photos. Protect it with a snapshot task:
+**Data Protection > Periodic Snapshot Tasks > Add**, dataset `POOL/apps/homeboard`, recursive, daily, keep 2 weeks.
+To go back, roll the dataset back to a snapshot (or copy one file out of `.zfs/snapshot`), then restart the app.
+Replicate the dataset to another machine if you want a copy that survives the NAS.
+
+### Alerts
+
+When a calendar or other source fails for longer than the delay set on the admin page (60 minutes by default),
+Homeboard sends one message to a Home Assistant webhook, and another when it recovers.
+
+1. In Home Assistant, **Settings > Automations > Create automation > Edit in YAML**, and paste:
+
+   ```yaml
+   alias: Homeboard alerts
+   triggers:
+     - trigger: webhook
+       webhook_id: homeboard-CHANGE-TO-A-LONG-RANDOM-ID
+       allowed_methods: [POST]
+       local_only: true
+   actions:
+     - action: notify.notify   # or notify.mobile_app_<your_phone>
+       data:
+         title: Homeboard
+         message: "{{ trigger.json.message }}"
+   ```
+
+2. On the Homeboard admin page, under **Alerts**, enter `http://HOMEASSISTANT:8123/api/webhook/<that id>`, press
+   **Save alerts**, then **Send a test alert**.
+
+The message carries `event` (`down`, `recovered` or `test`), `source` and `message`. The webhook ID works like a
+password: keep it long and random. `local_only` means Home Assistant only accepts it from your network.
 
 ## 3. Raspberry Pi
 

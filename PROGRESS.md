@@ -14,6 +14,13 @@ Template for each entry:
 - **Traps:** anything surprising that cost time (also add to CLAUDE.md › Gotchas if durable)
 -->
 
+## 2026-11-27 — Reliability
+- **Goal:** let the board look after itself (docs/specs/002-reliability.md).
+- **Done:** screens reload on new page code, GHCR image workflow, HA webhook alerts, customizable quiet mode, time zone setting, snapshot docs; version 0.2.0.
+- **Verified:** `bash scripts/verify.sh` (55 tests); reload, quiet screen and time zone checked by hand in the demo.
+- **Next:** after merge, check the first image run and make the GHCR package public; switch TrueNAS to the image.
+- **Traps:** TZ only understands canonical zone names (Intl accepts more); restarting a preview server also reopens its tab.
+
 ## 2026-11-27 — Layouts and custom styling
 - **Goal:** fixed 3-week grid, layouts, shorter titles, custom CSS/HTML (docs/specs/001-layouts-and-custom-styling.md).
 - **Done:** Open Props tokens in cascade layers, Pico admin, 4 layouts, quote/joke widgets, shorten rules, custom.css/html.

@@ -1,9 +1,8 @@
 # Paste into TrueNAS: Apps > Discover Apps > Custom App > Install via YAML.
-# Build the image first (docs/DEPLOY.md), then change POOL and the secrets.
+# Change POOL and the secrets. To stay on one version, replace :latest with a version such as :0.2.0.
 services:
   homeboard:
-    image: homeboard:latest
-    pull_policy: never
+    image: ghcr.io/joshoohaah/homeboard:latest
     restart: unless-stopped
     user: "568:568" # TrueNAS "apps" user
     ports:

@@ -51,7 +51,7 @@ before(async () => {
   const store = new ConfigStore({ board, file: join(dir, 'config.json'), iconExists });
   custom = new CustomFiles(join(dir, 'data'));
   await custom.load();
-  server = createApp({ board, photos, google, store, custom, photoImport: { status: 'idle', start: async (r) => `https://photos.google.com/${r}` }, log() {}, env: { ADMIN_PASSWORD: 'pw', DISPLAY_KEY: 'k', PUBLIC_URL: 'https://b.test' } });
+  server = createApp({ board, photos, google, store, custom, version: { version: '9.9.9+abc1234', build: 'build-1' }, photoImport: { status: 'idle', start: async (r) => `https://photos.google.com/${r}` }, log() {}, env: { ADMIN_PASSWORD: 'pw', DISPLAY_KEY: 'k', PUBLIC_URL: 'https://b.test' } });
   await new Promise((r) => server.listen(0, r));
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -83,7 +83,9 @@ test('board is private without the key', async () => {
   for (const p of ['/', '/api/board', '/photos/0123456789abcdef']) assert.equal((await get(p)).status, 403);
   assert.equal((await get('/?key=bad')).status, 403);
   assert.equal((await get('/', { cookie: await login() })).status, 200);
-  assert.equal((await get('/healthz')).status, 200);
+  assert.equal(await (await get('/healthz')).text(), 'ok 9.9.9+abc1234');
+  assert.equal((await (await get('/api/board', { cookie: await login() })).json()).build, 'build-1', 'screens reload on this');
+  assert.match(await (await get('/admin', basic)).text(), /version 9\.9\.9\+abc1234/);
 });
 test('the cookie is HTTPS-only exactly when the visitor came in over HTTPS', async () => {
   const cookie = async (headers) => (await get('/?key=k', headers)).headers.get('set-cookie');

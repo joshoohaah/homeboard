@@ -19,7 +19,7 @@ async function readForm(req) {
   return Object.fromEntries(new URLSearchParams(body));
 }
 
-export function createAdmin({ board, google, photoImport, store, custom, env, log, send, sendFile, redirect }) {
+export function createAdmin({ board, google, photoImport, store, custom, alerts, version, env, log, send, sendFile, redirect }) {
   // Browsers resend Basic credentials on their own, so a form must also carry this.
   const token = randomBytes(24).toString('base64url');
 
@@ -53,7 +53,10 @@ export function createAdmin({ board, google, photoImport, store, custom, env, lo
     try {
       const { token: sent, action, ...fields } = await readForm(req);
       if (!same(sent ?? '', token)) return send(res, 403, errorHtml('This page was out of date. Go back, reload it and try again.'), HTML);
-      if (action === 'custom-css' || action === 'custom-html') await custom.save(action.slice(7), fields.text);
+      if (action === 'alert-test') {
+        if (!board.config.alerts.webhook) throw new Error('Set a webhook first');
+        await alerts.send({ event: 'test', source: 'test', message: 'Homeboard: this is a test alert.' });
+      } else if (action === 'custom-css' || action === 'custom-html') await custom.save(action.slice(7), fields.text);
       else await store.apply(action, fields);
       const section = /^[a-z-]+$/.test(fields.section ?? '') ? `#${fields.section}` : '';
       board.refreshSoon();
@@ -71,7 +74,7 @@ export function createAdmin({ board, google, photoImport, store, custom, env, lo
       return send(res, 401, 'Sign in required', undefined, { 'www-authenticate': 'Basic realm="Homeboard", charset="UTF-8"' });
     }
     if (req.method === 'POST') return url.pathname === '/admin/save' ? edit(req, res) : send(res, 405, 'Method not allowed');
-    if (url.pathname === '/admin') return send(res, 200, await adminHtml({ board, google, photoImport, custom, token }), HTML);
+    if (url.pathname === '/admin') return send(res, 200, await adminHtml({ board, google, photoImport, custom, version, token }), HTML);
     if (url.pathname === '/admin/pico.css') return sendFile(res, ['node_modules/@picocss/pico/css/pico.classless.min.css', 'text/css'], 'max-age=86400');
     if (url.pathname === '/admin/icon-picker.js') return sendFile(res, ['public/icon-picker.js', 'text/javascript']);
     if (url.pathname === '/admin/icons.json') return send(res, 200, JSON.stringify(await iconIndex()), 'application/json', { 'cache-control': 'private, max-age=86400' });

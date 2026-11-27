@@ -65,14 +65,31 @@ function buildPanel(layout) {
   nextPhoto();
 }
 
-function drawClock() {
-  if (!parts.clock) return;
+function clockParts() {
   const opts = { timeZone: board?.timeZone };
   const p = new Intl.DateTimeFormat('en-US', { ...opts, hour: 'numeric', minute: '2-digit', hour12: true }).formatToParts();
   const get = (type) => p.find((x) => x.type === type).value;
-  parts.clock.replaceChildren(
-    el('div', 'time', `${get('hour')}:${get('minute')}`, el('small', '', get('dayPeriod'))),
-    el('div', 'date', new Intl.DateTimeFormat('en-US', { ...opts, weekday: 'long', month: 'long', day: 'numeric' }).format()));
+  return {
+    time: () => el('div', 'time', `${get('hour')}:${get('minute')}`, el('small', '', get('dayPeriod'))),
+    date: () => el('div', 'date', new Intl.DateTimeFormat('en-US', { ...opts, weekday: 'long', month: 'long', day: 'numeric' }).format()),
+  };
+}
+
+function drawClock() {
+  const c = clockParts();
+  parts.clock?.replaceChildren(c.time(), c.date());
+  if (board?.night) drawNight(board, c);
+}
+
+/** Quiet mode: only the chosen parts, dimmed. */
+function drawNight({ night, weather }, c = clockParts()) {
+  const show = new Set(night.show);
+  const next = night.next && tint(el('div', 'next', el('span', 'dot'), ` ${night.next.when}  ${night.next.title}`), night.next.color);
+  const now = weather && el('div', 'now', icon(weather.icon), ` ${weather.temp}°`);
+  $('night').style.setProperty('--hb-night-brightness', night.brightness / 100);
+  $('night').replaceChildren(...[
+    show.has('clock') && c.time(), show.has('date') && c.date(), show.has('next') && next, show.has('weather') && now,
+  ].filter(Boolean));
 }
 
 function drawWeather({ weather, aqi, today }) {
@@ -167,6 +184,24 @@ function drawWarning() {
   $('warn').hidden = !text;
 }
 
+/**
+ * A new server build means new page code: reload once. The session note stops a loop if the reloaded page
+ * still reports a build it cannot load.
+ */
+let pageBuild = null;
+function reloadForNewVersion(build) {
+  pageBuild ??= build;
+  if (!build || build === pageBuild) return false;
+  try {
+    if (sessionStorage.getItem('homeboard-reloaded-for') === build) return false;
+    sessionStorage.setItem('homeboard-reloaded-for', build);
+  } catch (err) {
+    console.warn('cannot remember the reload, reloading anyway:', err.message);
+  }
+  location.reload();
+  return true;
+}
+
 let last = '';
 async function poll() {
   try {
@@ -181,6 +216,9 @@ async function poll() {
       drawCustom(board.custom);
       const key = JSON.stringify(board.layout);
       if (key !== layoutKey) { layoutKey = key; buildPanel(board.layout); }
+      if (reloadForNewVersion(board.build)) return;
+      document.body.dataset.night = String(Boolean(board.night));
+      $('night').hidden = !board.night;
       drawWeather(board); drawCards(board); drawCalendar(board); drawClock();
     }
   } catch (err) {

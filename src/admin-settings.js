@@ -1,5 +1,6 @@
 import { PRESETS, WIDGETS } from './config.js';
 import { compileRules, shorten } from './text.js';
+import { timeZoneField } from './admin-ops.js';
 
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 export const hidden = (fields) => Object.entries(fields).map(([k, v]) => `<input type="hidden" name="${k}" value="${esc(v)}">`).join('');
@@ -28,6 +29,7 @@ export function layoutHtml(config, token) {
 <label>Layout<select name="preset">${PRESETS.map((p) => option(p, PRESET_LABELS[p], layout.preset)).join('')}</select></label>
 <label>Weeks shown<input type="number" name="weeks" min="1" max="6" value="${config.weeks}" required></label>
 <label>Week starts on<select name="weekStart">${option('monday', 'Monday', config.weekStart)}${option('sunday', 'Sunday', config.weekStart)}</select></label>
+${timeZoneField(config.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone)}
 <label>Times<select name="timeFormat">${option('short', '6p, 12:41p', config.timeFormat)}${option('long', '6:00pm, 12:41pm', config.timeFormat)}</select></label>
 </div>
 <label><input type="checkbox" name="legend"${checked(layout.legend)}> Show the calendar legend</label>

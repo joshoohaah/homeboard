@@ -2,6 +2,7 @@ import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { buildWeeks, gridRange, addDays, ymd, dayLetters } from './grid.js';
 import { compileRules, shorten } from './text.js';
+import { isNight, nextEvent } from './night.js';
 import { fetchIcs } from './ics.js';
 import { fetchWeather, fetchAqi, fetchWord, fetchQuote, fetchJoke } from './feeds.js';
 
@@ -13,8 +14,8 @@ export class Board {
   #errors = {};
   #running = null;
 
-  constructor({ config, google, photos, dataDir, log = console.error, now = () => new Date() }) {
-    Object.assign(this, { config, google, photos, dataDir, log, now });
+  constructor({ config, google, photos, dataDir, alerts, log = console.error, now = () => new Date() }) {
+    Object.assign(this, { config, google, photos, dataDir, alerts, log, now });
     this.file = join(dataDir, 'cache.json');
   }
 
@@ -89,6 +90,7 @@ export class Board {
         this.log(`${key}: ${r.reason.message}`);
       }
     });
+    await this.alerts?.update(this.status(), this.config.alerts.delayMinutes);
     await mkdir(this.dataDir, { recursive: true });
     await writeFile(`${this.file}.tmp`, JSON.stringify(this.#cache), { mode: 0o600 });
     await rename(`${this.file}.tmp`, this.file);
@@ -120,13 +122,15 @@ export class Board {
   snapshot() {
     const now = this.now();
     const weather = this.#data('weather');
-    const { weeks, weekStart, timeFormat, layout } = this.config;
+    const { weeks, weekStart, timeFormat, layout, night } = this.config;
+    const events = this.#events();
     return {
       title: this.config.title, today: ymd(now),
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       legend: this.config.calendars.map(({ name, color, icon }) => ({ name, color, icon: icon ?? null })),
       layout, days: dayLetters(weekStart),
-      weeks: buildWeeks(this.#events(), now, { weeks, weekStart, timeFormat }),
+      weeks: buildWeeks(events, now, { weeks, weekStart, timeFormat }),
+      night: isNight(night, now) && { show: night.show, brightness: night.brightness, next: nextEvent(events, now, timeFormat) },
       weather: weather && { ...weather, days: weather.days.filter((d) => d.date >= ymd(now)).slice(0, 3) },
       aqi: this.#data('aqi'), word: this.#data('word'), quote: this.#data('quote'), joke: this.#data('joke'),
       photos: this.photos.ids(), photoSeconds: this.config.photoSeconds,
