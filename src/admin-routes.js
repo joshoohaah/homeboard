@@ -63,7 +63,7 @@ export function createAdmin({ board, google, photoImport, store, custom, alerts,
       return redirect(res, `/admin${section}`, {}, 303);
     } catch (err) {
       log('admin edit:', err.message);
-      return send(res, 400, errorHtml(err.message.replace(/^config\.json: /, '')), HTML);
+      return send(res, 400, errorHtml(err.message.replace(/^Settings: /, '')), HTML);
     }
   }
 
@@ -74,7 +74,7 @@ export function createAdmin({ board, google, photoImport, store, custom, alerts,
       return send(res, 401, 'Sign in required', undefined, { 'www-authenticate': 'Basic realm="Homeboard", charset="UTF-8"' });
     }
     if (req.method === 'POST') return url.pathname === '/admin/save' ? edit(req, res) : send(res, 405, 'Method not allowed');
-    if (url.pathname === '/admin') return send(res, 200, await adminHtml({ board, google, photoImport, custom, version, token }), HTML);
+    if (url.pathname === '/admin') return send(res, 200, await adminHtml({ board, google, photoImport, custom, version, token, compose: store.compose }), HTML);
     if (url.pathname === '/admin/pico.css') return sendFile(res, ['node_modules/@picocss/pico/css/pico.classless.min.css', 'text/css'], 'max-age=86400');
     if (url.pathname === '/admin/icon-picker.js') return sendFile(res, ['public/icon-picker.js', 'text/javascript']);
     if (url.pathname === '/admin/icons.json') return send(res, 200, JSON.stringify(await iconIndex()), 'application/json', { 'cache-control': 'private, max-age=86400' });

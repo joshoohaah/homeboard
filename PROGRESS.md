@@ -14,6 +14,13 @@ Template for each entry:
 - **Traps:** anything surprising that cost time (also add to CLAUDE.md › Gotchas if durable)
 -->
 
+## 2026-11-27 — Configuration from compose
+- **Goal:** run fully from docker compose (docs/specs/003-compose-configuration.md).
+- **Done:** HOMEBOARD_* variables, CONFIG_FILE (YAML/JSON), _FILE secrets, locked fields on the admin page, readable startup errors; README and DEPLOY rewritten; version 0.3.0.
+- **Verified:** `bash scripts/verify.sh` (72 tests); built image run with compose: read-only file, variables, Docker secrets, admin save kept compose values out of data/config.json.
+- **Next:** switch the real deployment to the compose example.
+- **Traps:** CONFIG_FILE changed meaning (now read-only compose); saving must start from the admin layer as read, not the merged config.
+
 ## 2026-11-27 — Reliability
 - **Goal:** let the board look after itself (docs/specs/002-reliability.md).
 - **Done:** screens reload on new page code, GHCR image workflow, HA webhook alerts, customizable quiet mode, time zone setting, snapshot docs; version 0.2.0.

@@ -7,6 +7,17 @@ export const hidden = (fields) => Object.entries(fields).map(([k, v]) => `<input
 const option = (value, label, current) => `<option value="${esc(value)}"${value === current ? ' selected' : ''}>${esc(label)}</option>`;
 const checked = (on) => (on ? ' checked' : '');
 
+/** Attributes for an input whose setting compose controls. */
+export const locker = (compose) => (path) => {
+  const from = compose?.sources?.[path];
+  return from ? ` disabled title="Set in compose by ${esc(from)}"` : '';
+};
+/** A line naming what in this section compose controls. */
+export function lockNote(compose, paths) {
+  const set = paths.filter((p) => compose?.sources?.[p]);
+  return set.length ? `<p><small>🔒 Set in compose, change it there: ${set.map((p) => `<code>${esc(p)}</code> (${esc(compose.sources[p])})`).join(', ')}</small></p>` : '';
+}
+
 const PRESET_LABELS = { left: 'Side panel on the left', right: 'Side panel on the right', top: 'Top bar', calendar: 'Calendar only' };
 const WIDGET_LABELS = {
   clock: 'Clock and date', weather: 'Weather now', aqi: 'Air quality', forecast: '3-day forecast', word: 'Word of the day',
@@ -14,27 +25,29 @@ const WIDGET_LABELS = {
 };
 const DOCS = 'https://github.com/joshoohaah/homeboard/blob/main/docs/CUSTOMIZE.md';
 
-function widgetRows(widgets) {
+function widgetRows(widgets, lock) {
   return WIDGETS.map((w) => {
     const at = widgets.indexOf(w);
-    return `<tr><td><label><input type="checkbox" name="show-${w}"${checked(at >= 0)}> ${WIDGET_LABELS[w]}</label></td>
-<td><input type="number" name="order-${w}" value="${at >= 0 ? at + 1 : ''}" min="1" max="20" aria-label="Order of ${WIDGET_LABELS[w]}"></td></tr>`;
+    return `<tr><td><label><input type="checkbox" name="show-${w}"${checked(at >= 0)}${lock}> ${WIDGET_LABELS[w]}</label></td>
+<td><input type="number" name="order-${w}" value="${at >= 0 ? at + 1 : ''}" min="1" max="20" aria-label="Order of ${WIDGET_LABELS[w]}"${lock}></td></tr>`;
   }).join('');
 }
 
-export function layoutHtml(config, token) {
+export function layoutHtml(config, token, compose) {
   const { layout } = config;
-  return `<form method="post" action="/admin/save">${hidden({ token, section: 'layout' })}
+  const lk = locker(compose);
+  return `${lockNote(compose, ['layout.preset', 'weeks', 'weekStart', 'timeZone', 'timeFormat', 'layout.legend', 'layout.widgets'])}
+<form method="post" action="/admin/save">${hidden({ token, section: 'layout' })}
 <div class="grid">
-<label>Layout<select name="preset">${PRESETS.map((p) => option(p, PRESET_LABELS[p], layout.preset)).join('')}</select></label>
-<label>Weeks shown<input type="number" name="weeks" min="1" max="6" value="${config.weeks}" required></label>
-<label>Week starts on<select name="weekStart">${option('monday', 'Monday', config.weekStart)}${option('sunday', 'Sunday', config.weekStart)}</select></label>
-${timeZoneField(config.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone)}
-<label>Times<select name="timeFormat">${option('short', '6p, 12:41p', config.timeFormat)}${option('long', '6:00pm, 12:41pm', config.timeFormat)}</select></label>
+<label>Layout<select name="preset"${lk('layout.preset')}>${PRESETS.map((p) => option(p, PRESET_LABELS[p], layout.preset)).join('')}</select></label>
+<label>Weeks shown<input type="number" name="weeks" min="1" max="6" value="${config.weeks}" required${lk('weeks')}></label>
+<label>Week starts on<select name="weekStart"${lk('weekStart')}>${option('monday', 'Monday', config.weekStart)}${option('sunday', 'Sunday', config.weekStart)}</select></label>
+${timeZoneField(config.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone, lk('timeZone'))}
+<label>Times<select name="timeFormat"${lk('timeFormat')}>${option('short', '6p, 12:41p', config.timeFormat)}${option('long', '6:00pm, 12:41pm', config.timeFormat)}</select></label>
 </div>
-<label><input type="checkbox" name="legend"${checked(layout.legend)}> Show the calendar legend</label>
+<label><input type="checkbox" name="legend"${checked(layout.legend)}${lk('layout.legend')}> Show the calendar legend</label>
 <p><small>Widgets: tick to show, and number them for their order. Calendar only hides them all.</small></p>
-<table class="compact"><tbody>${widgetRows(layout.widgets)}</tbody></table>
+<table class="compact"><tbody>${widgetRows(layout.widgets, lk('layout.widgets'))}</tbody></table>
 <button name="action" value="layout">Save layout</button></form>`;
 }
 
@@ -45,13 +58,16 @@ function example(rule, titles) {
   return hit ? `<br><small>e.g. "${esc(hit.title)}" becomes "${esc(shorten(hit.title, hit.calendar, [compiled]))}"</small>` : '<br><small>Changes nothing on the board right now.</small>';
 }
 
-export function shortenHtml(config, titles, token) {
+export function shortenHtml(config, titles, token, compose) {
+  const from = compose?.sources?.shorten;
   const rows = config.shorten.map((r, i) => `<tr><td><code>${esc(r.match)}</code>${r.regex ? ' (pattern)' : ''}${example(r, titles)}</td>
 <td>${r.replace ? `<code>${esc(r.replace)}</code>` : '<em>removed</em>'}</td><td>${esc(r.calendar ?? 'all')}</td>
-<td><form method="post" action="/admin/save">${hidden({ token, section: 'shorten', index: i })}<button name="action" value="shorten-remove" class="secondary">Remove</button></form></td></tr>`);
+<td>${from ? '' : `<form method="post" action="/admin/save">${hidden({ token, section: 'shorten', index: i })}<button name="action" value="shorten-remove" class="secondary">Remove</button></form>`}</td></tr>`);
   const calendars = config.calendars.map((c) => option(c.name, c.name, '')).join('');
+  const table = rows.length ? `<table><thead><tr><th>Find</th><th>Replace with</th><th>Calendar</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '';
+  if (from) return `${lockNote(compose, ['shorten'])}${table}`;
   return `<p><small>Rules run in order on every event title, ignoring case. Leave "Replace with" empty to remove the text.</small></p>
-${rows.length ? `<table><thead><tr><th>Find</th><th>Replace with</th><th>Calendar</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table>` : ''}
+${table}
 <form method="post" action="/admin/save" class="row">${hidden({ token, section: 'shorten' })}
 <input name="match" placeholder="Find, e.g. Varsity Wrestling - " aria-label="Find" required maxlength="200">
 <input name="replace" placeholder="Replace with, e.g. VW " aria-label="Replace with" maxlength="200">
