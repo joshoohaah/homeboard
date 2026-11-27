@@ -1,5 +1,5 @@
 import { rename, writeFile } from 'node:fs/promises';
-import { validateConfig, WIDGETS } from './config.js';
+import { validateConfig, canonicalZone, WIDGETS, NIGHT_PARTS, WINDOW_ROWS } from './config.js';
 
 const at = (list, name) => {
   const i = list.findIndex((c) => c.name === name);
@@ -27,12 +27,30 @@ export const EDITS = {
 export const SETTINGS = {
   layout: (config, f) => ({
     ...config,
-    weeks: Number(f.weeks), weekStart: f.weekStart, timeFormat: f.timeFormat,
+    weeks: Number(f.weeks), weekStart: f.weekStart, timeFormat: f.timeFormat, timeZone: canonicalZone(f.timeZone),
     layout: {
       preset: f.preset, legend: f.legend === 'on',
       widgets: WIDGETS.filter((w) => f[`show-${w}`] === 'on')
         .map((w, i) => [w, Number(f[`order-${w}`]) || i + 100])
         .toSorted((a, b) => a[1] - b[1]).map(([w]) => w),
+    },
+  }),
+  night: (config, f) => ({
+    ...config,
+    night: {
+      enabled: f.enabled === 'on', mode: f.mode, brightness: Number(f.brightness),
+      show: NIGHT_PARTS.filter((p) => f[`show-${p}`] === 'on'),
+      windows: Array.from({ length: WINDOW_ROWS }, (_, i) => ({
+        days: [0, 1, 2, 3, 4, 5, 6].filter((d) => f[`w${i}-d${d}`] === 'on'),
+        start: f[`w${i}-start`] ?? '', end: f[`w${i}-end`] ?? '',
+      })).filter((w) => w.start || w.end), // a row without times is unused
+    },
+  }),
+  alerts: (config, f) => ({
+    ...config,
+    alerts: {
+      webhook: f.clear === 'on' ? '' : f.webhook?.trim() || config.alerts.webhook,
+      delayMinutes: Number(f.delayMinutes),
     },
   }),
   'shorten-add': (config, f) => ({
@@ -53,7 +71,7 @@ export const SETTINGS = {
 export class ConfigStore {
   #queue = Promise.resolve();
 
-  constructor({ board, file, iconExists }) { Object.assign(this, { board, file, iconExists }); }
+  constructor({ board, file, iconExists, onSaved }) { Object.assign(this, { board, file, iconExists, onSaved }); }
 
   /** Edits run one after another, so two saves cannot overwrite each other. */
   apply(action, fields) {
@@ -76,5 +94,6 @@ export class ConfigStore {
     await writeFile(`${this.file}.tmp`, `${JSON.stringify(withRules, null, 2)}\n`, { mode: 0o600 });
     await rename(`${this.file}.tmp`, this.file);
     this.board.setConfig(withRules);
+    this.onSaved?.(withRules);
   }
 }

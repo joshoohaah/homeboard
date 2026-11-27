@@ -89,6 +89,22 @@ is available too.
 [data-layout=top] [data-part=clock] .date { display: none; }
 ```
 
+## Quiet mode and time zone
+
+On the admin page, **Quiet mode** dims the board to a few large items on a schedule: up to three windows, each on
+chosen days (a window ending earlier than it starts runs past midnight and counts for the day it starts). Choose what
+shows (clock, date, next event, current weather) and how bright. **Right now** forces it on or off until you set it
+back to the schedule.
+
+All times (the grid, event times and quiet hours) use the **Time zone** set under **Layout**, such as
+`America/Chicago`, not the server's own clock.
+
+| Selector or variable | |
+|---|---|
+| `body[data-night=true]`, `[data-part=night]` | The board while quiet, and the quiet screen |
+| `#night .time`, `#night .date`, `#night .next`, `#night .now` | Its parts |
+| `--hb-night-bg`, `--hb-night-text` | Its colors (brightness is set on the admin page) |
+
 ## custom.html
 
 Shown in the **Custom HTML** widget. Put a `<style>` element in it for its look. It runs in a sandboxed frame:

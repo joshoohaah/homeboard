@@ -35,13 +35,13 @@ const sendFile = async (res, [path, type], cache = 'no-cache') =>
   send(res, 200, await readFile(root(path)), type, { 'cache-control': cache });
 const sendAdmin = (res, code, body, type, extra = {}) => send(res, code, body, type, { ...ADMIN_HEADERS, ...extra });
 
-export function createApp({ board, photos, google, photoImport, store, custom, env, log = console.error }) {
-  const admin = createAdmin({ board, google, photoImport, store, custom, env, log, send: sendAdmin, sendFile, redirect });
+export function createApp({ board, photos, google, photoImport, store, custom, alerts, version = { version: 'dev', build: 'dev' }, env, log = console.error }) {
+  const admin = createAdmin({ board, google, photoImport, store, custom, alerts, version, env, log, send: sendAdmin, sendFile, redirect });
 
   async function display(res, pathname) {
     if (STATIC[pathname]) return sendFile(res, STATIC[pathname]);
     if (pathname === '/api/board') await custom.refresh();
-    if (pathname === '/api/board') return send(res, 200, JSON.stringify({ ...board.snapshot(), custom: custom.version }), 'application/json');
+    if (pathname === '/api/board') return send(res, 200, JSON.stringify({ ...board.snapshot(), custom: custom.version, build: version.build }), 'application/json');
     // Loaded last, so the owner's rules win over the built-in layers.
     if (pathname === '/custom.css' || pathname === '/custom.html') await custom.refresh();
     if (pathname === '/custom.css') return send(res, 200, custom.css, 'text/css; charset=utf-8');
@@ -57,7 +57,7 @@ export function createApp({ board, photos, google, photoImport, store, custom, e
     const { pathname } = url;
     const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/');
     if (!['GET', 'HEAD'].includes(req.method) && !(isAdminPath && req.method === 'POST')) return send(res, 405, 'Method not allowed');
-    if (pathname === '/healthz') return send(res, 200, 'ok');
+    if (pathname === '/healthz') return send(res, 200, `ok ${version.version}`);
     if (isAdminPath) return admin(req, res, url);
     // A public icon pack: the admin page needs it without the display cookie.
     const icon = pathname.match(/^\/icons\/([a-z0-9-]+)\.svg$/)?.[1];
