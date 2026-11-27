@@ -11,9 +11,9 @@ const label = (name) => name.replaceAll('-', ' ');
 
 const search = el('input', { type: 'search', placeholder: 'Search, e.g. soccer, dentist, band', ariaLabel: 'Search icons' });
 const results = el('div', { className: 'icons' });
-const close = el('button', { type: 'button', textContent: 'Cancel', onclick: () => dialog.close() });
-const none = el('button', { type: 'button', textContent: 'No icon (dot)', onclick: () => choose('') });
-const dialog = el('dialog', { ariaLabel: 'Choose an icon' }, el('div', { className: 'bar' }, search, none, close), results);
+const close = el('button', { type: 'button', className: 'secondary', textContent: 'Cancel', onclick: () => dialog.close() });
+const none = el('button', { type: 'button', className: 'secondary', textContent: 'No icon (dot)', onclick: () => choose('') });
+const dialog = el('dialog', { ariaLabel: 'Choose an icon' }, el('article', {}, el('div', { className: 'bar' }, search, none, close), results));
 document.body.append(dialog);
 
 let index = null;

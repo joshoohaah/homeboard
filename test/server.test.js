@@ -11,9 +11,10 @@ import { Board } from '../src/board.js';
 import { Photos } from '../src/photos.js';
 import { GoogleClient } from '../src/google.js';
 import { validateConfig } from '../src/config.js';
+import { CustomFiles, CUSTOM_HTML_CSP } from '../src/custom.js';
 
 const realFetch = globalThis.fetch;
-let dir, photos, google, board, server, base, icsUp = true, lastEventsQuery;
+let quoteCalls = 0, custom, dir, photos, google, board, server, base, icsUp = true, lastEventsQuery;
 
 const ROUTES = {
   'feeds.test': () => (icsUp ? new Response('BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:1\r\nSUMMARY:Game\r\nDTSTART;VALUE=DATE:20261126\r\nEND:VEVENT\r\nEND:VCALENDAR') : new Response('', { status: 500 })),
@@ -28,6 +29,8 @@ const ROUTES = {
   'api.open-meteo.com': () => Response.json({ current: { temperature_2m: 25.2, apparent_temperature: 23, weather_code: 3, is_day: 1 },
     daily: { time: ['2026-11-24', '2026-11-25'], weather_code: [3, 61], temperature_2m_max: [37, 41], temperature_2m_min: [21, 28], precipitation_probability_max: [0, null] } }),
   'air-quality-api.open-meteo.com': () => Response.json({ current: { us_aqi: 13 } }),
+  'zenquotes.io': () => { quoteCalls += 1; return Response.json([{ q: 'Begin &amp; go.', a: 'Someone' }]); },
+  'v2.jokeapi.dev': () => Response.json({ error: false, safe: true, joke: 'A pun.' }),
 };
 
 before(async () => {
@@ -46,7 +49,9 @@ before(async () => {
   ] });
   board = new Board({ config, google, photos, dataDir: join(dir, 'data'), log() {}, now: () => new Date(2026, 10, 24, 9) });
   const store = new ConfigStore({ board, file: join(dir, 'config.json'), iconExists });
-  server = createApp({ board, photos, google, store, photoImport: { status: 'idle', start: async (r) => `https://photos.google.com/${r}` }, log() {}, env: { ADMIN_PASSWORD: 'pw', DISPLAY_KEY: 'k', PUBLIC_URL: 'https://b.test' } });
+  custom = new CustomFiles(join(dir, 'data'));
+  await custom.load();
+  server = createApp({ board, photos, google, store, custom, photoImport: { status: 'idle', start: async (r) => `https://photos.google.com/${r}` }, log() {}, env: { ADMIN_PASSWORD: 'pw', DISPLAY_KEY: 'k', PUBLIC_URL: 'https://b.test' } });
   await new Promise((r) => server.listen(0, r));
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -58,7 +63,7 @@ const login = async () => (await get('/?key=k')).headers.get('set-cookie').split
 const day = (date) => board.snapshot().weeks.flatMap((w) => w.days).find((d) => d.date === date).events;
 
 test('calendars are edited only with the password and the form token', async () => {
-  const post = (fields, headers = basic) => realFetch(`${base}/admin/calendars`, { method: 'POST', redirect: 'manual', headers, body: new URLSearchParams(fields) });
+  const post = (fields, headers = basic) => realFetch(`${base}/admin/save`, { method: 'POST', redirect: 'manual', headers, body: new URLSearchParams(fields) });
   const html = await (await get('/admin', basic)).text();
   const token = html.match(/name="token" value="([^"]+)"/)[1];
   assert.doesNotMatch(html, /secret-token/, 'iCal secrets stay hidden');
@@ -150,4 +155,43 @@ test('photos are resized; paths and other files are unreachable', async () => {
   assert.ok((await (await get('/admin/icons.json', basic)).json()).groups.Sports.includes('soccer'));
   assert.equal((await get('/admin/icon-picker.js', basic)).status, 200);
   assert.equal((await realFetch(`${base}/api/board`, { method: 'POST' })).status, 405);
+});
+
+test('layout, shortening and custom files are saved from the admin page and reach the board', async () => {
+  const html = await (await get('/admin', basic)).text();
+  const token = html.match(/name="token" value="([^"]+)"/)[1];
+  const post = (fields) => realFetch(`${base}/admin/save`, { method: 'POST', redirect: 'manual', headers: basic, body: new URLSearchParams({ token, ...fields }) });
+  const layout = { action: 'layout', section: 'layout', preset: 'top', weeks: '2', weekStart: 'sunday', timeFormat: 'long', legend: 'on',
+    'show-quote': 'on', 'order-quote': '2', 'show-clock': 'on', 'order-clock': '1', 'show-joke': 'on', 'order-joke': '', 'show-word': '' };
+  const saved = await post(layout);
+  assert.equal(saved.status, 303);
+  assert.equal(saved.headers.get('location'), '/admin#layout');
+  assert.deepEqual(board.config.layout, { preset: 'top', legend: true, widgets: ['clock', 'quote', 'joke'] });
+  assert.equal((await post({ ...layout, preset: 'diagonal' })).status, 400);
+  assert.equal((await post({ action: 'shorten-add', match: 'Ga', replace: 'G' })).status, 303);
+  await board.refresh();
+  await board.refresh();
+  assert.equal(quoteCalls, 1, 'the quote is fetched once a day');
+  const snap = JSON.parse(await (await get('/api/board', { cookie: await login() })).text());
+  assert.deepEqual([snap.weeks.length, snap.days[0], snap.quote.text, snap.joke.text], [2, 'S', 'Begin & go.', 'A pun.']);
+  assert.ok(snap.weeks.flatMap((w) => w.days).some((d) => d.events.some((e) => e.title === 'Gme' && e.color === '#00ff00')), 'colors use the full title');
+  assert.match(await (await get('/admin', basic)).text(), /becomes "Gme"/);
+  assert.equal((await post({ action: 'shorten-remove', index: '0' })).status, 303);
+  assert.equal((await post({ action: 'shorten-remove', index: '5' })).status, 400);
+
+  const cookie = await login();
+  const before = snap.custom;
+  assert.equal((await post({ action: 'custom-css', text: ':root { --hb-accent: #00f; }' })).status, 303);
+  assert.equal((await post({ action: 'custom-html', text: '<p>Hi</p><script>alert(1)</script>' })).status, 303);
+  assert.equal((await post({ action: 'custom-css', text: 'x'.repeat(60000) })).status, 400);
+  assert.equal(await (await get('/custom.css', { cookie })).text(), ':root { --hb-accent: #00f; }');
+  const page = await get('/custom.html', { cookie });
+  assert.equal(page.headers.get('content-security-policy'), CUSTOM_HTML_CSP);
+  assert.match(CUSTOM_HTML_CSP, /default-src 'none'.*sandbox/);
+  assert.match(await page.text(), /<p>Hi<\/p>/);
+  assert.equal((await get('/custom.css')).status, 403, 'custom files need the display key');
+  const after = JSON.parse(await (await get('/api/board', { cookie })).text()).custom;
+  assert.notEqual(after, before);
+  assert.equal((await get('/admin/pico.css', basic)).status, 200);
+  assert.equal((await get('/vendor/open-props.css', { cookie })).status, 200);
 });

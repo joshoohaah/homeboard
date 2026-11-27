@@ -7,6 +7,7 @@ import { PhotoImport } from './google-photos.js';
 import { Board } from './board.js';
 import { ConfigStore } from './config-edit.js';
 import { createApp, iconExists } from './app.js';
+import { CustomFiles } from './custom.js';
 
 const env = process.env;
 const dataDir = env.DATA_DIR || 'data';
@@ -29,6 +30,8 @@ const refresh = () => board.refresh().catch((err) => console.error('refresh:', e
 refresh();
 setInterval(refresh, config.refreshMinutes * 60_000);
 
+const custom = new CustomFiles(dataDir, console.error);
+await custom.load();
 const store = new ConfigStore({ board, file: configFile, iconExists });
-createApp({ board, photos, google, photoImport, store, env }).listen(port, () => console.log(`Homeboard on port ${port}`));
+createApp({ board, photos, google, photoImport, store, custom, env }).listen(port, () => console.log(`Homeboard on port ${port}`));
 for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => process.exit(0));

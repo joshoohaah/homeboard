@@ -74,3 +74,17 @@ export function parseWord(xml) {
 }
 export const fetchWord = async () =>
   parseWord(await (await fetchOk('https://www.merriam-webster.com/wotd/feed/rss2')).text());
+
+/** ZenQuotes asks for a visible credit, which the board shows. */
+export async function fetchQuote() {
+  const [quote] = await fetchJson('https://zenquotes.io/api/today');
+  if (!quote?.q || !quote.a) throw new Error('Quote feed changed shape');
+  return { text: plain(quote.q), author: plain(quote.a), credit: 'ZenQuotes.io' };
+}
+
+/** JokeAPI with its safe mode, which leaves out anything not family-friendly. */
+export async function fetchJoke() {
+  const joke = await fetchJson('https://v2.jokeapi.dev/joke/Pun,Misc?safe-mode&type=single');
+  if (joke.error || joke.safe !== true || typeof joke.joke !== 'string') throw new Error('No safe joke returned');
+  return { text: plain(joke.joke) };
+}

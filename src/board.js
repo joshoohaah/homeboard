@@ -1,8 +1,9 @@
 import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { buildWeeks, gridRange, addDays, ymd } from './grid.js';
+import { buildWeeks, gridRange, addDays, ymd, dayLetters } from './grid.js';
+import { compileRules, shorten } from './text.js';
 import { fetchIcs } from './ics.js';
-import { fetchWeather, fetchAqi, fetchWord } from './feeds.js';
+import { fetchWeather, fetchAqi, fetchWord, fetchQuote, fetchJoke } from './feeds.js';
 
 const WARN_AFTER_MS = 60 * 60_000;
 
@@ -24,8 +25,9 @@ export class Board {
   }
 
   #jobs() {
-    const { location, calendars, weeks } = this.config;
-    const range = gridRange(this.now(), weeks);
+    const { location, calendars, weeks, weekStart, layout } = this.config;
+    const range = gridRange(this.now(), weeks, weekStart);
+    const shown = new Set(layout.preset === 'calendar' ? [] : layout.widgets);
     // One spare week so the grid is full right after Saturday midnight.
     const span = { start: range.start, end: addDays(range.end, 7) };
     const fetchers = {
@@ -37,9 +39,17 @@ export class Board {
       ...calendars.map((c) => [`cal:${c.name}`, () => fetchers[c.type](c)]),
       ['weather', () => fetchWeather(location)],
       ['aqi', () => fetchAqi(location)],
-      ['word', fetchWord],
+      ...[['word', fetchWord], ['quote', fetchQuote], ['joke', fetchJoke]]
+        .filter(([key]) => shown.has(key)).map(([key, run]) => [key, () => this.#daily(key, run)]),
       ['photos', () => this.photos.scan()],
     ];
+  }
+
+  /** Fetches once per day, so the quote or joke stays the same until midnight. */
+  async #daily(key, run) {
+    const today = ymd(this.now());
+    const cached = this.#data(key);
+    return cached?.day === today ? cached : { ...(await run()), day: today };
   }
 
   /** Swaps the config and forgets cached events whose source changed. */
@@ -88,10 +98,18 @@ export class Board {
 
   #events() {
     const rules = this.config.colorRules.map((r) => ({ ...r, needle: r.match.toLowerCase() }));
+    const short = compileRules(this.config.shorten);
     return this.config.calendars.flatMap((c, order) => (this.#data(`cal:${c.name}`) ?? []).map((e) => {
       const rule = rules.find((r) => (!r.calendar || r.calendar === c.name) && e.title.toLowerCase().includes(r.needle));
-      return { ...e, order, icon: c.icon, color: rule?.color ?? e.color ?? c.color };
+      // Colors match the full title; the board shows the shortened one.
+      const title = shorten(e.title, c.name, short);
+      return { ...e, title, calendar: c.name, order, icon: c.icon, color: rule?.color ?? e.color ?? c.color };
     }));
+  }
+
+  /** Every event title on the board, unshortened, for previews on the admin page. */
+  titles() {
+    return this.config.calendars.flatMap((c) => (this.#data(`cal:${c.name}`) ?? []).map((e) => ({ calendar: c.name, title: e.title })));
   }
 
   status() {
@@ -102,13 +120,15 @@ export class Board {
   snapshot() {
     const now = this.now();
     const weather = this.#data('weather');
+    const { weeks, weekStart, timeFormat, layout } = this.config;
     return {
       title: this.config.title, today: ymd(now),
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       legend: this.config.calendars.map(({ name, color, icon }) => ({ name, color, icon: icon ?? null })),
-      weeks: buildWeeks(this.#events(), now, this.config.weeks),
+      layout, days: dayLetters(weekStart),
+      weeks: buildWeeks(this.#events(), now, { weeks, weekStart, timeFormat }),
       weather: weather && { ...weather, days: weather.days.filter((d) => d.date >= ymd(now)).slice(0, 3) },
-      aqi: this.#data('aqi'), word: this.#data('word'),
+      aqi: this.#data('aqi'), word: this.#data('word'), quote: this.#data('quote'), joke: this.#data('joke'),
       photos: this.photos.ids(), photoSeconds: this.config.photoSeconds,
       problems: this.status()
         .filter((s) => s.error && (!s.at || Date.now() - s.at > WARN_AFTER_MS))
@@ -117,7 +137,7 @@ export class Board {
   }
 }
 
-/** Demo events: `day` counts from the first Sunday shown. */
+/** Demo events: `day` counts from the first day shown. */
 function staticDates({ day, days = 1, time, hours = 1 }, first) {
   const date = addDays(first, day);
   if (!time) return { allDay: true, start: ymd(date), end: ymd(addDays(date, days)) };

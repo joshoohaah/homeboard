@@ -55,7 +55,8 @@ Use a **second SD card** so the DAKboard card is an instant way back.
 | `calendars[].type` | `google` (`account`, `calendar` name or ID) or `ics` (`url`) |
 | `calendars[].icon` | pick it on the admin page (Material Design Icons); leave out for a dot |
 | `colorRules` | e.g. `{ "match": "soccer", "color": "#f6bf26", "calendar": "Parent" }`; wins over Google's color |
-| `weeks`, `refreshMinutes`, `photoSeconds` | 6, 5, 30 by default |
+| `weeks`, `weekStart`, `timeFormat`, `layout`, `shorten` | set them on the admin page; see [CUSTOMIZE.md](CUSTOMIZE.md) |
+| `refreshMinutes`, `photoSeconds` | 5 and 30 by default |
 
 Colors set on individual events are used when the board reads the calendar through its owner's account. Google hides
 them from people the calendar is shared with, and ICS feeds do not carry them: use `colorRules` there.

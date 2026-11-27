@@ -1,34 +1,213 @@
 {
   "title": "Demo",
-  "location": { "latitude": 40.71, "longitude": -74.01 },
+  "location": {
+    "latitude": 40.71,
+    "longitude": -74.01
+  },
   "calendars": [
-    { "name": "Dad", "type": "static", "color": "#2200bb", "icon": "penguin", "events": [
-      { "day": 10, "title": "Water the plants" },
-      { "day": 22, "days": 3, "title": "Conference" },
-      { "day": 22, "time": "12:30", "title": "Train out" },
-      { "day": 24, "time": "17:30", "title": "Train home" }] },
-    { "name": "Mom", "type": "static", "color": "#e67c73", "icon": "heart-circle", "events": [
-      { "day": 2, "time": "18:00", "title": "Sam chess club", "color": "#f6bf26" },
-      { "day": 9, "time": "18:00", "title": "Sam chess club", "color": "#f6bf26" },
-      { "day": 16, "time": "18:00", "title": "Sam chess club", "color": "#f6bf26" },
-      { "day": 23, "time": "18:00", "title": "Sam chess club", "color": "#f6bf26" },
-      { "day": 3, "days": 5, "title": "No school for Alex", "color": "#f4511e" },
-      { "day": 9, "title": "Library books due", "color": "#039be5" },
-      { "day": 23, "days": 7, "title": "Exam week", "color": "#f4511e" },
-      { "day": 25, "time": "11:00", "title": "Dentist" }] },
-    { "name": "School", "type": "static", "color": "#9e69af", "icon": "food-apple-outline", "events": [
-      { "day": 1, "time": "9:00", "title": "Museum field trip" },
-      { "day": 2, "title": "Pajama day" },
-      { "day": 3, "days": 3, "title": "No school - autumn break" },
-      { "day": 8, "title": "No school - staff day" },
-      { "day": 16, "title": "Report cards available online this afternoon" },
-      { "day": 22, "time": "14:00", "title": "Choir and orchestra concert" },
-      { "day": 31, "days": 10, "title": "No school - winter break" }] },
-    { "name": "Team", "type": "static", "color": "#4285f4", "events": [
-      { "day": 11, "time": "18:30", "title": "Team - three-way match @ Northside High, with Eastbrook and Westfield" },
-      { "day": 13, "time": "8:30", "title": "Team - home tournament" },
-      { "day": 26, "time": "15:00", "hours": 26, "title": "Team - two-day invitational" }] },
-    { "name": "Band", "type": "static", "color": "#039be5", "events": [
-      { "day": 23, "time": "18:15", "title": "Winter concert" }] }
+    {
+      "name": "Dad",
+      "type": "static",
+      "color": "#2200bb",
+      "icon": "penguin",
+      "events": [
+        {
+          "day": 10,
+          "title": "Water the plants"
+        },
+        {
+          "day": 22,
+          "days": 3,
+          "title": "Conference"
+        },
+        {
+          "day": 22,
+          "time": "12:30",
+          "title": "Train out"
+        },
+        {
+          "day": 24,
+          "time": "17:30",
+          "title": "Train home"
+        }
+      ]
+    },
+    {
+      "name": "Mom",
+      "type": "static",
+      "color": "#e67c73",
+      "icon": "heart-circle",
+      "events": [
+        {
+          "day": 2,
+          "time": "18:00",
+          "title": "Sam chess club",
+          "color": "#f6bf26"
+        },
+        {
+          "day": 9,
+          "time": "18:00",
+          "title": "Sam chess club",
+          "color": "#f6bf26"
+        },
+        {
+          "day": 16,
+          "time": "18:00",
+          "title": "Sam chess club",
+          "color": "#f6bf26"
+        },
+        {
+          "day": 23,
+          "time": "18:00",
+          "title": "Sam chess club",
+          "color": "#f6bf26"
+        },
+        {
+          "day": 3,
+          "days": 5,
+          "title": "No school for Alex",
+          "color": "#f4511e"
+        },
+        {
+          "day": 9,
+          "title": "Library books due",
+          "color": "#039be5"
+        },
+        {
+          "day": 23,
+          "days": 7,
+          "title": "Exam week",
+          "color": "#f4511e"
+        },
+        {
+          "day": 25,
+          "time": "11:00",
+          "title": "Dentist"
+        },
+        {
+          "day": 3,
+          "time": "9:30",
+          "title": "Piano lesson"
+        },
+        {
+          "day": 3,
+          "time": "10:30",
+          "title": "Grocery pickup"
+        },
+        {
+          "day": 3,
+          "time": "11:30",
+          "title": "Soccer practice"
+        },
+        {
+          "day": 3,
+          "time": "12:30",
+          "title": "Book club"
+        },
+        {
+          "day": 3,
+          "time": "13:30",
+          "title": "Science fair setup"
+        },
+        {
+          "day": 3,
+          "time": "14:30",
+          "title": "Carpool"
+        }
+      ]
+    },
+    {
+      "name": "School",
+      "type": "static",
+      "color": "#9e69af",
+      "icon": "food-apple-outline",
+      "events": [
+        {
+          "day": 1,
+          "time": "9:00",
+          "title": "Museum field trip"
+        },
+        {
+          "day": 2,
+          "title": "Pajama day"
+        },
+        {
+          "day": 3,
+          "days": 3,
+          "title": "No school - autumn break"
+        },
+        {
+          "day": 8,
+          "title": "No school - staff day"
+        },
+        {
+          "day": 16,
+          "title": "Report cards available online this afternoon"
+        },
+        {
+          "day": 22,
+          "time": "14:00",
+          "title": "Choir and orchestra concert"
+        },
+        {
+          "day": 31,
+          "days": 10,
+          "title": "No school - winter break"
+        }
+      ]
+    },
+    {
+      "name": "Team",
+      "type": "static",
+      "color": "#4285f4",
+      "events": [
+        {
+          "day": 11,
+          "time": "18:30",
+          "title": "Team - three-way match @ Northside High, with Eastbrook and Westfield"
+        },
+        {
+          "day": 13,
+          "time": "8:30",
+          "title": "Team - home tournament"
+        },
+        {
+          "day": 26,
+          "time": "15:00",
+          "hours": 26,
+          "title": "Team - two-day invitational"
+        }
+      ]
+    },
+    {
+      "name": "Band",
+      "type": "static",
+      "color": "#039be5",
+      "events": [
+        {
+          "day": 23,
+          "time": "18:15",
+          "title": "Winter concert"
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "preset": "left",
+    "legend": true,
+    "widgets": [
+      "clock",
+      "weather",
+      "aqi",
+      "forecast",
+      "quote",
+      "photos"
+    ]
+  },
+  "shorten": [
+    {
+      "match": "No school - ",
+      "replace": "No school: "
+    }
   ]
 }
